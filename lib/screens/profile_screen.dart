@@ -115,9 +115,11 @@ class ProfileScreen extends StatelessWidget {
             subtitle: 'Toque para configurar',
             onTap: () {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text(
-                      'Configuração de moto principal disponível no site MotoHead'),
+                SnackBar(
+                  content: const Text('Configuração de moto principal disponível no site MotoHead'),
+                  backgroundColor: const Color(0xFFFF0000),
+                  duration: const Duration(seconds: 2),
+                  behavior: SnackBarBehavior.floating,
                 ),
               );
             },
@@ -243,8 +245,14 @@ class ProfileScreen extends StatelessWidget {
       );
 
   void _todo(BuildContext context) {
-    // Placeholder - funcionalidades disponíveis no site MotoHead
-    // showDialog não funciona bem no Flutter Web
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('Disponível em breve. Acesse o site MotoHead.'),
+        backgroundColor: const Color(0xFFFF0000),
+        duration: const Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   void _confirmLogout(
