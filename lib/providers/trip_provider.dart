@@ -128,23 +128,36 @@ class TripProvider extends ChangeNotifier {
   }
 
   void _startStream() {
+    print('TripProvider._startStream: Iniciando stream de GPS');
     _sub?.cancel();
     _tracking = true;
     notifyListeners();
+    
     _sub = _location.positionStream().listen(
       (pos) async {
-        if (_paused || _activeTrip == null) return;
+        print('TripProvider._startStream: Nova posição recebida: ${pos.latitude}, ${pos.longitude}');
+        if (_paused || _activeTrip == null) {
+          print('TripProvider._startStream: Ignorando posição (paused: $_paused, activeTrip: ${_activeTrip != null})');
+          return;
+        }
+        print('TripProvider._startStream: Enviando ponto...');
         await _sendPoint(pos);
       },
       onError: (e) {
+        print('TripProvider._startStream: Erro no GPS: $e');
         _error = 'Erro de GPS: $e';
         notifyListeners();
       },
     );
+    print('TripProvider._startStream: Stream iniciado com sucesso');
   }
 
   Future<void> _sendPoint(Position pos) async {
-    if (_activeTrip == null) return;
+    print('TripProvider._sendPoint: Enviando ponto - Lat: ${pos.latitude}, Lng: ${pos.longitude}');
+    if (_activeTrip == null) {
+      print('TripProvider._sendPoint: Nenhuma viagem ativa, ignorando');
+      return;
+    }
     try {
       // Atualiza estatísticas locais.
       if (_lastLat != null && _lastLng != null) {
@@ -154,11 +167,13 @@ class TripProvider extends ChangeNotifier {
         );
         if (meters > 5) {
           _currentDistanceKm += meters / 1000.0;
+          print('TripProvider._sendPoint: Distância adicionada: ${meters}m, Total: $_currentDistanceKm km');
         }
       }
       _currentSpeed = (pos.speed * 3.6); // m/s -> km/h
       if (_currentSpeed >= 2 && _lastPointAt != null) {
         _movingSeconds += DateTime.now().difference(_lastPointAt!).inSeconds;
+        print('TripProvider._sendPoint: Moving seconds: $_movingSeconds, Speed: $_currentSpeed km/h');
       }
       _lastLat = pos.latitude;
       _lastLng = pos.longitude;
