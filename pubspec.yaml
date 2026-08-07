@@ -51,9 +51,8 @@ dependencies:
   url_launcher: ^6.3.0
 
   # Localização GPS em primeiro plano (MVP). Background virá depois.
-  # geolocator temporariamente desabilitado por problemas de compatibilidade
-  # geolocator: ^10.1.0
-  # geocoding: ^2.1.0
+  geolocator: ^10.1.0
+  geocoding: ^2.1.0
 
 dev_dependencies:
   flutter_test:

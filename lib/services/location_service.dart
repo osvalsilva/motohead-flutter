@@ -1,4 +1,4 @@
-// import 'package:geolocator/geolocator.dart';
+import 'package:geolocator/geolocator.dart';
 
 /// Serviço de localização GPS para o tracking de viagem (spec §6).
 ///
@@ -13,22 +13,42 @@ class LocationService {
   ///
   /// Retorna true se pronto para usar.
   Future<bool> ensurePermission() async {
-    // TODO: Implementar quando geolocator for reativado
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      return false;
+    }
+
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        return false;
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      return false;
+    }
+
     return true;
   }
 
   /// Última posição conhecida (rápido, sem aguardar fix de GPS).
   Future<Position?> lastKnownPosition() async {
-    // TODO: Implementar quando geolocator for reativado
-    return null;
+    return await Geolocator.getLastKnownPosition();
   }
 
   /// Posição atual com alta precisão.
   Future<Position> currentPosition({
     String accuracy = 'high',
   }) async {
-    // TODO: Implementar quando geolocator for reativado
-    throw UnimplementedError('Geolocator temporariamente desabilitado');
+    LocationAccuracy locationAccuracy = accuracy == 'high'
+        ? LocationAccuracy.high
+        : LocationAccuracy.medium;
+    
+    return await Geolocator.getCurrentPosition(
+      desiredAccuracy: locationAccuracy,
+    );
   }
 
   /// Stream de posições para tracking contínuo (spec §6).
@@ -39,30 +59,15 @@ class LocationService {
     double distanceFilterMeters = 10,
     String accuracy = 'high',
   }) {
-    // TODO: Implementar quando geolocator for reativado
-    return Stream.empty();
+    LocationAccuracy locationAccuracy = accuracy == 'high'
+        ? LocationAccuracy.high
+        : LocationAccuracy.medium;
+
+    return Geolocator.getPositionStream(
+      locationSettings: LocationSettings(
+        accuracy: locationAccuracy,
+        distanceFilter: distanceFilterMeters,
+      ),
+    );
   }
-}
-
-// Classes stub para compatibilidade
-class Position {
-  final double latitude;
-  final double longitude;
-  final double altitude;
-  final double speed;
-  final double heading;
-  final double accuracy;
-
-  Position({
-    required this.latitude,
-    required this.longitude,
-    this.altitude = 0.0,
-    this.speed = 0.0,
-    this.heading = 0.0,
-    this.accuracy = 0.0,
-  });
-}
-
-class LocationSettings {
-  LocationSettings({required String accuracy, required int distanceFilter});
 }
