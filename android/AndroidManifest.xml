@@ -5,11 +5,11 @@
          to allow setting breakpoints, to provide hot reload, etc.
     -->
     <uses-permission android:name="android.permission.INTERNET"/>
-</manifest>
 
-<!-- Flutter embedding v2 -->
-<application>
-    <meta-data
-        android:name="flutterEmbedding"
-        android:value="2" />
-</application>
+    <!-- Flutter embedding v2 -->
+    <application>
+        <meta-data
+            android:name="flutterEmbedding"
+            android:value="2" />
+    </application>
+</manifest>
