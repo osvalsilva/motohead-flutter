@@ -8,10 +8,12 @@ class FriendProvider extends ChangeNotifier {
   List<Friend> _friends = [];
   bool _loading = false;
   String? _error;
+  bool _sendingSos = false;
 
   List<Friend> get friends => _friends;
   bool get loading => _loading;
   String? get error => _error;
+  bool get sendingSos => _sendingSos;
 
   Future<void> loadFriends() async {
     _loading = true;
@@ -39,6 +41,23 @@ class FriendProvider extends ChangeNotifier {
     } finally {
       _loading = false;
       notifyListeners();
+    }
+  }
+
+  Future<bool> sendSos({double? lat, double? lng}) async {
+    _sendingSos = true;
+    notifyListeners();
+
+    try {
+      final result = await _apiService.sendSos(lat: lat, lng: lng);
+      _sendingSos = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _sendingSos = false;
+      _error = 'Erro ao enviar SOS: $e';
+      notifyListeners();
+      return false;
     }
   }
 }

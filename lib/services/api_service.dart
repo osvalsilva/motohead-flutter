@@ -264,6 +264,19 @@ class ApiService {
     return data as List<dynamic>;
   }
 
+  /// POST /api/friends/sos — envia SOS para amigos
+  Future<Map<String, dynamic>> sendSos({
+    double? lat,
+    double? lng,
+    String? message,
+  }) async {
+    return await _post('/api/friends/sos', body: {
+      'latitude': lat ?? 0.0,
+      'longitude': lng ?? 0.0,
+      'message' => message ?? 'SOS acionado',
+    }) as Map<String, dynamic>;
+  }
+
   // ----------------------- MOTORCYCLES -----------------------
 
   /// GET /api/motorcycles

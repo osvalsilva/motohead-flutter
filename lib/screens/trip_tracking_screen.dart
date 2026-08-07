@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../providers/trip_provider.dart';
+import '../providers/friend_provider.dart';
 import '../services/api_service.dart';
 import '../widgets/sos_button.dart';
 
@@ -160,21 +161,30 @@ class _TripTrackingScreenState extends State<TripTrackingScreen> {
       );
 
   Future<void> _triggerSos(BuildContext context, TripProvider trips) async {
-    final api = ApiService.instance;
-    try {
-      final lat = -23.5505;
-      final lng = -46.6333;
-
-      await api.triggerSos(lat: lat, lng: lng, tripId: trips.activeTrip?.id);
-
-      if (context.mounted) {
+    // Enviar SOS para amigos
+    final success = await context.read<FriendProvider>().sendSos();
+    
+    if (context.mounted) {
+      if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('SOS acionado! Sua localização foi compartilhada.'),
+            content: Text('SOS enviado para seus contatos de emergência!'),
             backgroundColor: Colors.green,
+            duration: Duration(seconds: 3),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Erro ao enviar SOS. Tente novamente.'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 3),
+            behavior: SnackBarBehavior.floating,
           ),
         );
       }
+    }
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
