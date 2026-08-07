@@ -241,7 +241,6 @@ class ProfileScreen extends StatelessWidget {
           ),
         ),
       );
-  }
 
   void _todo(BuildContext context) {
     // Placeholder - funcionalidades disponíveis no site MotoHead
