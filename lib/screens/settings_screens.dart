@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/friend_provider.dart';
+import '../models/friend.dart';
 
 /// Tela de Privacidade
 class PrivacyScreen extends StatelessWidget {
@@ -197,8 +200,21 @@ class NotificationsScreen extends StatelessWidget {
 }
 
 /// Tela de Contatos de SOS
-class SosContactsScreen extends StatelessWidget {
+class SosContactsScreen extends StatefulWidget {
   const SosContactsScreen({super.key});
+
+  @override
+  State<SosContactsScreen> createState() => _SosContactsScreenState();
+}
+
+class _SosContactsScreenState extends State<SosContactsScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<FriendProvider>().loadFriends();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -215,51 +231,79 @@ class SosContactsScreen extends StatelessWidget {
             )),
         iconTheme: const IconThemeData(color: Colors.white),
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(20),
-        children: [
-          const Text(
-            'Configure contatos de emergência para serem notificados em caso de acidente.',
-            style: TextStyle(color: Colors.white70, fontSize: 14),
-          ),
-          const SizedBox(height: 20),
-          _sosContactTile(
-            name: 'Maria Silva',
-            phone: '(11) 99999-9999',
-            relation: 'Esposa',
-          ),
-          _sosContactTile(
-            name: 'João Santos',
-            phone: '(11) 88888-8888',
-            relation: 'Amigo',
-          ),
-          const SizedBox(height: 20),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: () {},
-              style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFFFF0000),
-                side: const BorderSide(color: Color(0xFFFF0000)),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
+      body: Consumer<FriendProvider>(
+        builder: (context, friendProvider, child) {
+          if (friendProvider.loading) {
+            return const Center(
+              child: CircularProgressIndicator(color: Color(0xFFFF0000)),
+            );
+          }
+
+          if (friendProvider.error != null) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.error_outline, color: Colors.red, size: 48),
+                  const SizedBox(height: 16),
+                  Text(
+                    friendProvider.error!,
+                    style: const TextStyle(color: Colors.white70),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () => friendProvider.loadFriends(),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFFF0000),
+                    ),
+                    child: const Text('Tentar novamente'),
+                  ),
+                ],
               ),
-              icon: const Icon(Icons.add),
-              label: const Text('ADICIONAR CONTATO',
-                  style: TextStyle(fontWeight: FontWeight.bold)),
-            ),
-          ),
-        ],
+            );
+          }
+
+          final friends = friendProvider.friends;
+
+          if (friends.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.people_outline, color: Colors.white24, size: 64),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Nenhum amigo encontrado',
+                    style: TextStyle(color: Colors.white54, fontSize: 16),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Adicione amigos no site MotoHead',
+                    style: TextStyle(color: Colors.white38, fontSize: 12),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          return ListView(
+            padding: const EdgeInsets.all(20),
+            children: [
+              const Text(
+                'Selecione seus contatos de emergência entre seus amigos.',
+                style: TextStyle(color: Colors.white70, fontSize: 14),
+              ),
+              const SizedBox(height: 20),
+              ...friends.map((friend) => _friendTile(friend)),
+            ],
+          );
+        },
       ),
     );
   }
 
-  Widget _sosContactTile({
-    required String name,
-    required String phone,
-    required String relation,
-  }) {
+  Widget _friendTile(Friend friend) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -269,10 +313,18 @@ class SosContactsScreen extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const CircleAvatar(
+          CircleAvatar(
             radius: 24,
-            backgroundColor: Color(0xFFFF0000),
-            child: Icon(Icons.person, color: Colors.white),
+            backgroundColor: const Color(0xFFFF0000),
+            backgroundImage: friend.avatar != null
+                ? NetworkImage(friend.avatar!)
+                : null,
+            child: friend.avatar == null
+                ? Text(
+                    friend.name.isNotEmpty ? friend.name[0].toUpperCase() : '?',
+                    style: const TextStyle(color: Colors.white),
+                  )
+                : null,
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -280,28 +332,36 @@ class SosContactsScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  name,
+                  friend.name,
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  relation,
-                  style: const TextStyle(color: Colors.white54, fontSize: 12),
-                ),
-                Text(
-                  phone,
-                  style: const TextStyle(color: Colors.white38, fontSize: 12),
-                ),
+                if (friend.personalStatus != null && friend.personalStatus!.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    friend.personalStatus!,
+                    style: const TextStyle(color: Colors.white54, fontSize: 12),
+                  ),
+                ],
+                if (friend.city != null || friend.state != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    '${friend.city ?? ''}${friend.city != null && friend.state != null ? ' - ' : ''}${friend.state ?? ''}',
+                    style: const TextStyle(color: Colors.white38, fontSize: 12),
+                  ),
+                ],
               ],
             ),
           ),
-          IconButton(
-            icon: const Icon(Icons.edit, color: Colors.white54),
-            onPressed: () {},
+          Switch(
+            value: false, // TODO: Implementar persistência de contatos SOS
+            onChanged: (value) {
+              // TODO: Implementar toggle de contato SOS
+            },
+            activeColor: const Color(0xFFFF0000),
           ),
         ],
       ),
