@@ -2,7 +2,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:image_cropper/image_cropper.dart';
 
 import '../providers/trip_provider.dart';
 import '../services/api_service.dart';
@@ -363,33 +362,9 @@ class _TripTrackingScreenState extends State<TripTrackingScreen> {
       );
 
       if (image != null) {
-        CroppedFile? croppedFile = await ImageCropper().cropImage(
-          sourcePath: image.path,
-          aspectRatioPresets: [
-            CropAspectRatioPreset.square,
-            CropAspectRatioPreset.ratio3x2,
-            CropAspectRatioPreset.original,
-            CropAspectRatioPreset.ratio16x9,
-          ],
-          uiSettings: [
-            AndroidUiSettings(
-              toolbarTitle: 'Recortar foto',
-              toolbarColor: const Color(0xFFFF0000),
-              toolbarWidgetColor: Colors.white,
-              initAspectRatio: CropAspectRatioPreset.original,
-              lockAspectRatio: false,
-            ),
-            IOSUiSettings(
-              title: 'Recortar foto',
-            ),
-          ],
-        );
-
-        if (croppedFile != null) {
-          setState(() {
-            _tripPhotos.add(File(croppedFile.path));
-          });
-        }
+        setState(() {
+          _tripPhotos.add(File(image.path));
+        });
       }
     } catch (e) {
       if (context.mounted) {
