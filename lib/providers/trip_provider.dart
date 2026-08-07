@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:geolocator/geolocator.dart';
 
 import '../models/trip.dart';
@@ -27,11 +28,14 @@ class TripProvider extends ChangeNotifier {
   // Estatísticas locais (espelhando o backend).
   double _currentDistanceKm = 0;
   int _movingSeconds = 0;
+  int _totalDurationSeconds = 0; // Duração total da viagem (incluindo paradas)
   double _currentSpeed = 0;
   double? _lastLat;
   double? _lastLng;
   DateTime? _lastPointAt;
+  DateTime? _tripStartTime; // Quando a viagem foi iniciada
   StreamSubscription<Position>? _sub;
+  Ticker? _ticker;
 
   bool get loading => _loading;
   bool get tracking => _tracking;
@@ -43,6 +47,7 @@ class TripProvider extends ChangeNotifier {
 
   double get currentDistanceKm => _currentDistanceKm;
   int get movingSeconds => _movingSeconds;
+  int get totalDurationSeconds => _totalDurationSeconds;
   double get currentSpeed => _currentSpeed;
 
   /// Carrega histórico de viagens do usuário.
@@ -52,21 +57,14 @@ class TripProvider extends ChangeNotifier {
     notifyListeners();
     try {
       _history = await _api.listTrips();
-      print('TripProvider.loadHistory: Carregadas ${_history.length} viagens');
-      print('TripProvider.loadHistory: Status das viagens: ${_history.map((t) => t.status).toList()}');
       // Detecta viagem ativa no servidor.
       final active = _history.firstWhereOrNull((t) => t.isActive);
-      print('TripProvider.loadHistory: Viagem ativa encontrada: ${active != null}');
       if (active != null) {
-        print('TripProvider.loadHistory: ID da viagem ativa: ${active.id}, Status: ${active.status}');
         _activeTrip = active;
-        print('TripProvider.loadHistory: hasActiveTrip após carregar: $hasActiveTrip');
       }
     } on ApiException catch (e) {
-      print('TripProvider.loadHistory: Erro API: ${e.message}');
       _error = e.message;
     } catch (e) {
-      print('TripProvider.loadHistory: Erro: $e');
       _error = 'Falha ao carregar viagens: $e';
     } finally {
       _loading = false;
@@ -100,10 +98,12 @@ class TripProvider extends ChangeNotifier {
       _activeTrip = trip;
       _currentDistanceKm = 0;
       _movingSeconds = 0;
+      _totalDurationSeconds = 0;
       _currentSpeed = 0;
       _lastLat = pos.latitude;
       _lastLng = pos.longitude;
       _lastPointAt = DateTime.now();
+      _tripStartTime = DateTime.now();
       _paused = false;
       notifyListeners();
 
@@ -112,6 +112,8 @@ class TripProvider extends ChangeNotifier {
 
       // Começa o stream de tracking.
       _startStream();
+      // Começa o ticker de duração.
+      _startTicker();
       return true;
     } on ApiException catch (e) {
       _error = e.message;
@@ -128,28 +130,36 @@ class TripProvider extends ChangeNotifier {
   }
 
   void _startStream() {
-    print('TripProvider._startStream: Iniciando stream de GPS');
     _sub?.cancel();
     _tracking = true;
     notifyListeners();
     
     _sub = _location.positionStream().listen(
       (pos) async {
-        print('TripProvider._startStream: Nova posição recebida: ${pos.latitude}, ${pos.longitude}');
-        if (_paused || _activeTrip == null) {
-          print('TripProvider._startStream: Ignorando posição (paused: $_paused, activeTrip: ${_activeTrip != null})');
-          return;
-        }
-        print('TripProvider._startStream: Enviando ponto...');
+        if (_paused || _activeTrip == null) return;
         await _sendPoint(pos);
       },
       onError: (e) {
-        print('TripProvider._startStream: Erro no GPS: $e');
         _error = 'Erro de GPS: $e';
         notifyListeners();
       },
     );
-    print('TripProvider._startStream: Stream iniciado com sucesso');
+  }
+
+  void _startTicker() {
+    _ticker?.dispose();
+    _ticker = Ticker((elapsed) {
+      if (_activeTrip != null && !_paused) {
+        _totalDurationSeconds++;
+        notifyListeners();
+      }
+    });
+    _ticker!.start();
+  }
+
+  void _stopTicker() {
+    _ticker?.dispose();
+    _ticker = null;
   }
 
   Future<void> _sendPoint(Position pos) async {
@@ -208,6 +218,7 @@ class TripProvider extends ChangeNotifier {
       _sub?.cancel();
       _sub = null;
       _tracking = false;
+      _stopTicker();
     } catch (e) {
       _error = 'Falha ao pausar: $e';
     } finally {
@@ -226,6 +237,7 @@ class TripProvider extends ChangeNotifier {
       _paused = false;
       _lastPointAt = DateTime.now();
       _startStream();
+      _startTicker();
     } catch (e) {
       _error = 'Falha ao retomar: $e';
     } finally {
@@ -243,11 +255,13 @@ class TripProvider extends ChangeNotifier {
       await _sub?.cancel();
       _sub = null;
       _tracking = false;
+      _stopTicker();
       final finished = await _api.finishTrip(_activeTrip!.id);
       _history.insert(0, finished);
       _activeTrip = null;
       _currentDistanceKm = 0;
       _movingSeconds = 0;
+      _totalDurationSeconds = 0;
       _currentSpeed = 0;
       notifyListeners();
       return true;
@@ -285,6 +299,7 @@ class TripProvider extends ChangeNotifier {
   @override
   void dispose() {
     _sub?.cancel();
+    _ticker?.dispose();
     super.dispose();
   }
 }

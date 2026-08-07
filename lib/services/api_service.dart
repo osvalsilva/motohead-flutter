@@ -137,19 +137,8 @@ class ApiService {
     final query = <String, String>{'page': page.toString()};
     if (status != null && status.isNotEmpty) query['status'] = status;
     final data = await _get('/api/tracking/trips', query: query);
-    
-    try {
-      final list = data['trips'] as List? ?? [];
-      print('ApiService.listTrips: ${list.length} viagens para parsear');
-      return list.map((e) {
-        print('ApiService.listTrips: Parseando viagem: $e');
-        return Trip.fromJson(e as Map<String, dynamic>);
-      }).toList();
-    } catch (e, stackTrace) {
-      print('ApiService.listTrips: Erro ao fazer parse: $e');
-      print('ApiService.listTrips: Stack trace: $stackTrace');
-      rethrow;
-    }
+    final list = data['trips'] as List? ?? [];
+    return list.map((e) => Trip.fromJson(e as Map<String, dynamic>)).toList();
   }
 
   /// POST /api/tracking/trips/start
