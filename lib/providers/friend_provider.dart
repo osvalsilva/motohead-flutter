@@ -22,7 +22,8 @@ class FriendProvider extends ChangeNotifier {
       final data = await _apiService.listFriends();
       _friends = data.map((json) => Friend.fromJson(json)).toList();
     } catch (e) {
-      _error = 'Erro ao carregar amigos: $e';
+      // Se a API não estiver disponível, mostra mensagem amigável
+      _error = 'Adicione amigos pelo site MotoHead para usá-los como contatos de SOS';
       _friends = [];
     } finally {
       _loading = false;

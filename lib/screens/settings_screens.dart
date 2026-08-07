@@ -270,21 +270,41 @@ class _SosContactsScreenState extends State<SosContactsScreen> {
 
           if (friends.isEmpty) {
             return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.people_outline, color: Colors.white24, size: 64),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Nenhum amigo encontrado',
-                    style: TextStyle(color: Colors.white54, fontSize: 16),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Adicione amigos no site MotoHead',
-                    style: TextStyle(color: Colors.white38, fontSize: 12),
-                  ),
-                ],
+              child: Padding(
+                padding: const EdgeInsets.all(40),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.people_outline, color: Colors.white24, size: 64),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Nenhum amigo encontrado',
+                      style: TextStyle(color: Colors.white54, fontSize: 16),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Adicione amigos no site MotoHead',
+                      style: TextStyle(color: Colors.white38, fontSize: 12),
+                    ),
+                    const SizedBox(height: 24),
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        // TODO: Abrir site MotoHead
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Acesse motohead.com.br para adicionar amigos'),
+                            backgroundColor: Color(0xFFFF0000),
+                          ),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFFF0000),
+                      ),
+                      icon: const Icon(Icons.open_in_new),
+                      label: const Text('ABRIR SITE MOTOHEAD'),
+                    ),
+                  ],
+                ),
               ),
             );
           }
