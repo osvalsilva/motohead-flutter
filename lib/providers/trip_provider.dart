@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
-// import 'package:geolocator/geolocator.dart';
+import 'package:geolocator/geolocator.dart';
 
 import '../models/trip.dart';
 import '../services/api_service.dart';
@@ -141,8 +141,7 @@ class TripProvider extends ChangeNotifier {
     try {
       // Atualiza estatísticas locais.
       if (_lastLat != null && _lastLng != null) {
-        // Cálculo manual de distância (Haversine simplificado)
-        final meters = _calculateDistance(
+        final meters = Geolocator.distanceBetween(
           _lastLat!, _lastLng!, pos.latitude, pos.longitude,
         );
         if (meters > 5) {
@@ -252,12 +251,6 @@ class TripProvider extends ChangeNotifier {
   void clearError() {
     _error = null;
     notifyListeners();
-  }
-
-  /// Cálculo de distância entre dois pontos (simplificado).
-  double _calculateDistance(double lat1, double lng1, double lat2, double lng2) {
-    // Cálculo simplificado - retorna 0 temporariamente
-    return 0;
   }
 
   @override

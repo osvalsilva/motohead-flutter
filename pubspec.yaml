@@ -42,10 +42,8 @@ dependencies:
   provider: ^6.1.2
 
   # Localização GPS em primeiro plano (MVP). Background virá depois.
-  # geolocator temporariamente desabilitado para build
-  # geolocator: ^12.0.0
-  # geocoding temporariamente desabilitado para build
-  # geocoding: ^2.1.0
+  geolocator: ^10.1.0
+  geocoding: ^2.1.0
 
 dev_dependencies:
   flutter_test:
