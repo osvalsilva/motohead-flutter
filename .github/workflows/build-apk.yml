@@ -28,6 +28,9 @@ jobs:
           channel: 'stable'
           cache: false
 
+      - name: Create Android structure
+        run: flutter create --platforms=android --project-name motohead_app .
+
       - name: Get dependencies
         run: flutter pub get
 
