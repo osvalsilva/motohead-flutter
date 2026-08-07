@@ -36,7 +36,7 @@ dependencies:
   cupertino_icons: ^1.0.8
 
   # HTTP client para consumir a API MotoHead
-  http: ^1.2.2
+  http: ^1.2.0
 
   # Estado + navegação
   provider: ^6.1.2
