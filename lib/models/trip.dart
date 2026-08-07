@@ -54,8 +54,18 @@ class Trip {
   });
 
   factory Trip.fromJson(Map<String, dynamic> j) {
-    double toDouble(dynamic v) => v == null ? 0.0 : (v as num).toDouble();
-    int toInt(dynamic v) => v == null ? 0 : (v as num).toInt();
+    double toDouble(dynamic v) {
+      if (v == null) return 0.0;
+      if (v is num) return v.toDouble();
+      if (v is String) return double.parse(v);
+      return 0.0;
+    }
+    int toInt(dynamic v) {
+      if (v == null) return 0;
+      if (v is num) return v.toInt();
+      if (v is String) return int.parse(v);
+      return 0;
+    }
     return Trip(
       id: toInt(j['id']),
       userId: toInt(j['user_id']),
