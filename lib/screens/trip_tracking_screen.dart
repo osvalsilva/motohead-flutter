@@ -1,5 +1,8 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:image_cropper/image_cropper.dart';
 
 import '../providers/trip_provider.dart';
 import '../services/api_service.dart';
@@ -14,8 +17,16 @@ import '../widgets/sos_button.dart';
 /// 4. informações essenciais
 /// 5. controles de viagem
 /// 6. SOS
-class TripTrackingScreen extends StatelessWidget {
+class TripTrackingScreen extends StatefulWidget {
   const TripTrackingScreen({super.key});
+
+  @override
+  State<TripTrackingScreen> createState() => _TripTrackingScreenState();
+}
+
+class _TripTrackingScreenState extends State<TripTrackingScreen> {
+  final ImagePicker _imagePicker = ImagePicker();
+  List<File> _tripPhotos = [];
 
   @override
   Widget build(BuildContext context) {
@@ -233,19 +244,105 @@ class TripTrackingScreen extends StatelessWidget {
             child: const Text('CANCELAR',
                 style: TextStyle(color: Colors.white54)),
           ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _showSaveOptions(context, trips);
+            },
+            child: const Text('SALVAR',
+                style: TextStyle(color: Color(0xFFFF0000))),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showSaveOptions(BuildContext context, TripProvider trips) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A1A),
+        title: const Text('Salvar viagem',
+            style: TextStyle(color: Colors.white)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Deseja adicionar fotos à viagem?',
+              style: TextStyle(color: Colors.white70),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: () => _pickPhoto(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFFF0000),
+                foregroundColor: Colors.white,
+                minimumSize: const Size(double.infinity, 48),
+              ),
+              icon: const Icon(Icons.add_a_photo),
+              label: const Text('ADICIONAR FOTO'),
+            ),
+            if (_tripPhotos.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              const Text(
+                'Fotos selecionadas:',
+                style: TextStyle(color: Colors.white70, fontSize: 12),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: _tripPhotos.map((photo) {
+                  return Stack(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.file(
+                          photo,
+                          width: 80,
+                          height: 80,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                      Positioned(
+                        top: 0,
+                        right: 0,
+                        child: GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _tripPhotos.remove(photo);
+                            });
+                          },
+                          child: Container(
+                            decoration: const BoxDecoration(
+                              color: Colors.red,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.close,
+                              color: Colors.white,
+                              size: 16,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                }).toList(),
+              ),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('CANCELAR',
+                style: TextStyle(color: Colors.white54)),
+          ),
           ElevatedButton(
             onPressed: () async {
               Navigator.pop(ctx);
-              final ok = await trips.finish();
-              if (ok && context.mounted) {
-                Navigator.pop(context); // volta para a lista
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Viagem finalizada e sincronizada!'),
-                    backgroundColor: Colors.green,
-                  ),
-                );
-              }
+              await _finishTrip(context, trips);
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFFF0000),
@@ -256,6 +353,68 @@ class TripTrackingScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _pickPhoto(BuildContext context) async {
+    try {
+      final XFile? image = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 85,
+      );
+
+      if (image != null) {
+        CroppedFile? croppedFile = await ImageCropper().cropImage(
+          sourcePath: image.path,
+          aspectRatioPresets: [
+            CropAspectRatioPreset.square,
+            CropAspectRatioPreset.ratio3x2,
+            CropAspectRatioPreset.original,
+            CropAspectRatioPreset.ratio16x9,
+          ],
+          uiSettings: [
+            AndroidUiSettings(
+              toolbarTitle: 'Recortar foto',
+              toolbarColor: const Color(0xFFFF0000),
+              toolbarWidgetColor: Colors.white,
+              initAspectRatio: CropAspectRatioPreset.original,
+              lockAspectRatio: false,
+            ),
+            IOSUiSettings(
+              title: 'Recortar foto',
+            ),
+          ],
+        );
+
+        if (croppedFile != null) {
+          setState(() {
+            _tripPhotos.add(File(croppedFile.path));
+          });
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao selecionar foto: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _finishTrip(BuildContext context, TripProvider trips) async {
+    final ok = await trips.finish();
+    if (ok && context.mounted) {
+      Navigator.pop(context); // volta para a lista
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Viagem finalizada e sincronizada!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      // TODO: Enviar fotos para o servidor
+    }
   }
 
   Widget _row(String k, String v) => Padding(
@@ -272,50 +431,8 @@ class TripTrackingScreen extends StatelessWidget {
       );
 
   void _showStartDialog(BuildContext context, TripProvider trips) {
-    final nameCtrl = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A1A),
-        title: const Text('Nova viagem',
-            style: TextStyle(color: Colors.white)),
-        content: TextField(
-          controller: nameCtrl,
-          autofocus: true,
-          decoration: const InputDecoration(
-            hintText: 'Ex.: Serra da Canastra',
-            hintStyle: TextStyle(color: Colors.white38),
-            enabledBorder: UnderlineInputBorder(
-              borderSide: BorderSide(color: Colors.white24),
-            ),
-            focusedBorder: UnderlineInputBorder(
-              borderSide: BorderSide(color: Color(0xFFFF0000)),
-            ),
-          ),
-          style: const TextStyle(color: Colors.white),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('CANCELAR',
-                style: TextStyle(color: Colors.white54)),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              final name = nameCtrl.text.trim();
-              if (name.isEmpty) return;
-              Navigator.pop(ctx);
-              await trips.startTrip(name: name);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFFF0000),
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('INICIAR'),
-          ),
-        ],
-      ),
-    );
+    // Inicia viagem diretamente sem pedir nome
+    trips.startTrip(name: 'Viagem ${DateTime.now().day}/${DateTime.now().month}');
   }
 }
 

@@ -3,7 +3,7 @@ import '../models/friend.dart';
 import '../services/api_service.dart';
 
 class FriendProvider extends ChangeNotifier {
-  final ApiService _apiService = ApiService();
+  final ApiService _apiService = ApiService.instance;
 
   List<Friend> _friends = [];
   bool _loading = false;
@@ -19,7 +19,7 @@ class FriendProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final response = await _apiService.get('/api/friends');
+      final response = await _apiService.request('GET', '/api/friends');
 
       if (response['success'] == true && response['data'] != null) {
         _friends = (response['data'] as List)

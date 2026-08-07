@@ -41,6 +41,10 @@ dependencies:
   # Estado + navegação
   provider: ^6.1.2
 
+  # Selecionar e recortar imagens
+  image_picker: ^1.0.7
+  image_cropper: ^5.0.1
+
   # Localização GPS em primeiro plano (MVP). Background virá depois.
   # geolocator temporariamente desabilitado por problemas de compatibilidade
   # geolocator: ^10.1.0
