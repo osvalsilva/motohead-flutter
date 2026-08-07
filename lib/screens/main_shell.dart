@@ -30,16 +30,19 @@ class _MainShellState extends State<MainShell> {
   void initState() {
     super.initState();
     // Carrega histórico ao entrar no app.
+    // Temporariamente desabilitado devido a erro na API
+    /*
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<TripProvider>().loadHistory();
     });
+    */
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0D0D0D),
-      body: IndexedStack(index: _index, children: _screens),
+      body: _screens[_index],
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _index,
         onTap: (i) => setState(() => _index = i),
