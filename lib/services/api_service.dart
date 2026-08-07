@@ -38,11 +38,16 @@ class ApiService {
   bool get isAuthenticated => _token != null && _token!.isNotEmpty;
 
   /// Headers padrão (JSON + Authorization se houver token).
-  Map<String, String> get _headers => {
+  Map<String, String> get _headers {
+    final headers = <String, String>{
         'Content-Type': 'application/json',
         'Accept': 'application/json',
-        if (_token != null) 'Authorization': 'Bearer $_token',
       };
+    if (_token != null) {
+      headers['Authorization'] = 'Bearer $_token';
+    }
+    return headers;
+  }
 
   Uri _uri(String path) {
     final base = AppConfig.apiBaseUrl.replaceAll(RegExp(r'/+$'), '');
@@ -77,10 +82,14 @@ class ApiService {
 
   Future<dynamic> _get(String path, {Map<String, String>? query}) async {
     final uri = _uri(path).replace(queryParameters: query);
+    print('ApiService._get: URL = $uri');
+    print('ApiService._get: Headers = $_headers');
     final resp = await http.get(uri, headers: _headers).timeout(
       const Duration(seconds: 20),
       onTimeout: () => throw ApiException(0, 'Tempo limite excedido'),
     );
+    print('ApiService._get: Status = ${resp.statusCode}');
+    print('ApiService._get: Body = ${resp.body}');
     return _decode(resp);
   }
 

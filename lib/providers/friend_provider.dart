@@ -20,7 +20,9 @@ class FriendProvider extends ChangeNotifier {
 
     print('FriendProvider: Iniciando loadFriends');
     print('FriendProvider: isAuthenticated = ${_apiService.isAuthenticated}');
-    print('FriendProvider: token = ${_apiService.token}');
+    print('FriendProvider: token existe = ${_apiService.token != null}');
+    print('FriendProvider: token tamanho = ${_apiService.token?.length ?? 0}');
+    print('FriendProvider: token início = ${_apiService.token?.substring(0, Math.min(20, _apiService.token?.length ?? 0))}');
 
     try {
       if (!_apiService.isAuthenticated) {
