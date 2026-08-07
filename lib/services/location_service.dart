@@ -66,7 +66,7 @@ class LocationService {
     return Geolocator.getPositionStream(
       locationSettings: LocationSettings(
         accuracy: locationAccuracy,
-        distanceFilter: distanceFilterMeters,
+        distanceFilter: distanceFilterMeters.toInt(),
       ),
     );
   }
