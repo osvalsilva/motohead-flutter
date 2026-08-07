@@ -1,11 +1,10 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../config/app_config.dart';
 import '../providers/auth_provider.dart';
 import '../providers/trip_provider.dart';
+import 'settings_screens.dart';
 
 /// Tela de Perfil (spec §21) — simplificada.
 ///
@@ -114,8 +113,15 @@ class ProfileScreen extends StatelessWidget {
           _listTile(
             icon: Icons.motorcycle,
             title: 'Sem moto principal',
-            subtitle: 'Toque para configurar',
-            onTap: () => _openUrl(context, '${AppConfig.apiBaseUrl}/motorcycles'),
+            subtitle: 'Configure no site MotoHead',
+            onTap: () => ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text('Configure sua moto no site MotoHead'),
+                backgroundColor: const Color(0xFFFF0000),
+                duration: const Duration(seconds: 2),
+                behavior: SnackBarBehavior.floating,
+              ),
+            ),
           ),
           const SizedBox(height: 28),
 
@@ -125,27 +131,42 @@ class ProfileScreen extends StatelessWidget {
           _listTile(
             icon: Icons.privacy_tip_outlined,
             title: 'Privacidade',
-            onTap: () => _openUrl(context, '${AppConfig.apiBaseUrl}/lgpd/privacy'),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const PrivacyScreen()),
+            ),
           ),
           _listTile(
             icon: Icons.notifications_outlined,
             title: 'Notificações',
-            onTap: () => _openUrl(context, '${AppConfig.apiBaseUrl}/notifications'),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const NotificationsScreen()),
+            ),
           ),
           _listTile(
             icon: Icons.contact_emergency,
             title: 'Contatos de SOS',
-            onTap: () => _showSosInfo(context),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const SosContactsScreen()),
+            ),
           ),
           _listTile(
             icon: Icons.location_on_outlined,
             title: 'Permissões de localização',
-            onTap: () => _showLocationInfo(context),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const LocationPermissionsScreen()),
+            ),
           ),
           _listTile(
             icon: Icons.settings_outlined,
             title: 'Configurações da viagem',
-            onTap: () => _openUrl(context, '${AppConfig.apiBaseUrl}/settings'),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const TripSettingsScreen()),
+            ),
           ),
           const SizedBox(height: 28),
 
@@ -236,43 +257,6 @@ class ProfileScreen extends StatelessWidget {
           ),
         ),
       );
-
-  void _openUrl(BuildContext context, String url) async {
-    final uri = Uri.parse(url);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Não foi possível abrir: $url'),
-          backgroundColor: const Color(0xFFFF0000),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    }
-  }
-
-  void _showSosInfo(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('Configure contatos de emergência no site MotoHead'),
-        backgroundColor: const Color(0xFFFF0000),
-        duration: const Duration(seconds: 2),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
-
-  void _showLocationInfo(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('Permita acesso à localização nas configurações do sistema'),
-        backgroundColor: const Color(0xFFFF0000),
-        duration: const Duration(seconds: 2),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
 
   void _confirmLogout(
       BuildContext context, AuthProvider auth, TripProvider trips) {
