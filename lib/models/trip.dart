@@ -57,15 +57,24 @@ class Trip {
     double toDouble(dynamic v) {
       if (v == null) return 0.0;
       if (v is num) return v.toDouble();
-      if (v is String) return double.parse(v);
+      if (v is String) {
+        print('Trip.fromJson: Convertendo String para double: "$v"');
+        return double.parse(v);
+      }
+      print('Trip.fromJson: Tipo inesperado para toDouble: ${v.runtimeType}, valor: $v');
       return 0.0;
     }
     int toInt(dynamic v) {
       if (v == null) return 0;
       if (v is num) return v.toInt();
-      if (v is String) return int.parse(v);
+      if (v is String) {
+        print('Trip.fromJson: Convertendo String para int: "$v"');
+        return int.parse(v);
+      }
+      print('Trip.fromJson: Tipo inesperado para toInt: ${v.runtimeType}, valor: $v');
       return 0;
     }
+    print('Trip.fromJson: Iniciando parsing. Keys: ${j.keys.toList()}');
     return Trip(
       id: toInt(j['id']),
       userId: toInt(j['user_id']),
