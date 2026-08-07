@@ -42,7 +42,7 @@ dependencies:
   provider: ^6.1.2
 
   # Localização GPS em primeiro plano (MVP). Background virá depois.
-  geolocator: ^13.0.1
+  geolocator: ^12.0.0
   geocoding: ^3.0.0
 
 dev_dependencies:
