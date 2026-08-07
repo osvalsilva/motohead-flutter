@@ -247,6 +247,14 @@ class ApiService {
     return list.map((e) => MotoEvent.fromJson(e as Map<String, dynamic>)).toList();
   }
 
+  // ----------------------- FRIENDS -----------------------
+
+  /// GET /api/friends — lista amigos do usuário
+  Future<List<dynamic>> listFriends() async {
+    final data = await _get('/api/friends');
+    return data as List<dynamic>;
+  }
+
   // ----------------------- MOTORCYCLES -----------------------
 
   /// GET /api/motorcycles

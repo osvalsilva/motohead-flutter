@@ -19,12 +19,11 @@ class FriendProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // Nota: Precisa adicionar método público no ApiService ou usar método privado
-      // Por enquanto, vamos deixar vazio até adicionar o método correto
-      _friends = [];
-      _error = 'Funcionalidade em desenvolvimento';
+      final data = await _apiService.listFriends();
+      _friends = data.map((json) => Friend.fromJson(json)).toList();
     } catch (e) {
       _error = 'Erro ao carregar amigos: $e';
+      _friends = [];
     } finally {
       _loading = false;
       notifyListeners();
