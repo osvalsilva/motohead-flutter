@@ -185,16 +185,6 @@ class _TripTrackingScreenState extends State<TripTrackingScreen> {
         );
       }
     }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Falha ao acionar SOS: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
   }
 
   Widget _bigButton({

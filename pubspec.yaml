@@ -44,6 +44,12 @@ dependencies:
   # Selecionar imagens
   image_picker: ^1.0.7
 
+  # Persistência local
+  shared_preferences: ^2.2.3
+
+  # Abrir URLs externas
+  url_launcher: ^6.3.0
+
   # Localização GPS em primeiro plano (MVP). Background virá depois.
   # geolocator temporariamente desabilitado por problemas de compatibilidade
   # geolocator: ^10.1.0

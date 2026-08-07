@@ -1,7 +1,9 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/friend_provider.dart';
 import '../models/friend.dart';
 
@@ -215,11 +217,31 @@ class _SosContactsScreenState extends State<SosContactsScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<FriendProvider>().loadFriends();
+      _loadSosContacts();
     });
   }
 
   // Lista de IDs de amigos selecionados como contatos SOS
   final Set<int> _selectedFriendIds = {};
+
+  // Carregar contatos SOS salvos
+  Future<void> _loadSosContacts() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedIds = prefs.getString('sos_contacts');
+    if (savedIds != null) {
+      final List<dynamic> decoded = jsonDecode(savedIds);
+      setState(() {
+        _selectedFriendIds.clear();
+        _selectedFriendIds.addAll(decoded.cast<int>());
+      });
+    }
+  }
+
+  // Salvar contatos SOS
+  Future<void> _saveSosContacts() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('sos_contacts', jsonEncode(_selectedFriendIds.toList()));
+  }
 
   void _toggleFriend(int friendId) {
     setState(() {
@@ -229,6 +251,7 @@ class _SosContactsScreenState extends State<SosContactsScreen> {
         _selectedFriendIds.add(friendId);
       }
     });
+    _saveSosContacts();
   }
 
   @override

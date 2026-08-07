@@ -82,14 +82,10 @@ class ApiService {
 
   Future<dynamic> _get(String path, {Map<String, String>? query}) async {
     final uri = _uri(path).replace(queryParameters: query);
-    print('ApiService._get: URL = $uri');
-    print('ApiService._get: Headers = $_headers');
     final resp = await http.get(uri, headers: _headers).timeout(
       const Duration(seconds: 20),
       onTimeout: () => throw ApiException(0, 'Tempo limite excedido'),
     );
-    print('ApiService._get: Status = ${resp.statusCode}');
-    print('ApiService._get: Body = ${resp.body}');
     return _decode(resp);
   }
 
@@ -270,11 +266,12 @@ class ApiService {
     double? lng,
     String? message,
   }) async {
-    return await _post('/api/friends/sos', body: {
+    final body = <String, dynamic>{
       'latitude': lat ?? 0.0,
       'longitude': lng ?? 0.0,
-      'message' => message ?? 'SOS acionado',
-    }) as Map<String, dynamic>;
+      'message': message ?? 'SOS acionado',
+    };
+    return await _post('/api/friends/sos', body: body) as Map<String, dynamic>;
   }
 
   // ----------------------- MOTORCYCLES -----------------------
