@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:image_picker/image_picker.dart';
 import '../providers/friend_provider.dart';
 import '../models/friend.dart';
 
@@ -590,6 +592,324 @@ class TripSettingsScreen extends StatelessWidget {
           const SizedBox(width: 8),
           const Icon(Icons.chevron_right, color: Colors.white24),
         ],
+      ),
+    );
+  }
+}
+
+/// Tela de Adicionar Moto
+class AddMotorcycleScreen extends StatefulWidget {
+  const AddMotorcycleScreen({super.key});
+
+  @override
+  State<AddMotorcycleScreen> createState() => _AddMotorcycleScreenState();
+}
+
+class _AddMotorcycleScreenState extends State<AddMotorcycleScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _brandController = TextEditingController();
+  final _modelController = TextEditingController();
+  final _yearController = TextEditingController();
+  final _ccController = TextEditingController();
+  final _nicknameController = TextEditingController();
+  final _plateController = TextEditingController();
+
+  File? _photo;
+  final ImagePicker _imagePicker = ImagePicker();
+  bool _loading = false;
+
+  @override
+  void dispose() {
+    _brandController.dispose();
+    _modelController.dispose();
+    _yearController.dispose();
+    _ccController.dispose();
+    _nicknameController.dispose();
+    _plateController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickPhoto() async {
+    try {
+      final XFile? image = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 85,
+      );
+
+      if (image != null) {
+        setState(() {
+          _photo = File(image.path);
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao selecionar foto: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _saveMotorcycle() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _loading = true);
+
+    try {
+      // TODO: Implementar chamada à API para salvar moto
+      // Por enquanto, apenas fecha e mostra mensagem
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Funcionalidade em desenvolvimento - use o site MotoHead'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao salvar moto: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF0D0D0D),
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        title: const Text('NOVA MOTO',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.5,
+            )),
+        iconTheme: const IconThemeData(color: Colors.white),
+      ),
+      body: Form(
+        key: _formKey,
+        child: ListView(
+          padding: const EdgeInsets.all(20),
+          children: [
+            // Foto
+            GestureDetector(
+              onTap: _pickPhoto,
+              child: Container(
+                width: double.infinity,
+                height: 200,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1A1A1A),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.white24, width: 2),
+                ),
+                child: _photo != null
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.file(
+                          _photo!,
+                          width: double.infinity,
+                          height: double.infinity,
+                          fit: BoxFit.cover,
+                        ),
+                      )
+                    : Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.add_a_photo,
+                            size: 48,
+                            color: Colors.white24,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Toque para adicionar foto',
+                            style: TextStyle(color: Colors.white54, fontSize: 14),
+                          ),
+                        ],
+                      ),
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // Marca
+            TextFormField(
+              controller: _brandController,
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(
+                labelText: 'Marca *',
+                labelStyle: TextStyle(color: Colors.white54),
+                enabledBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.white24),
+                ),
+                focusedBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Color(0xFFFF0000)),
+                ),
+              ),
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Informe a marca';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 16),
+
+            // Modelo
+            TextFormField(
+              controller: _modelController,
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(
+                labelText: 'Modelo *',
+                labelStyle: TextStyle(color: Colors.white54),
+                enabledBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.white24),
+                ),
+                focusedBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Color(0xFFFF0000)),
+                ),
+              ),
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Informe o modelo';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 16),
+
+            // Ano
+            TextFormField(
+              controller: _yearController,
+              keyboardType: TextInputType.number,
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(
+                labelText: 'Ano *',
+                labelStyle: TextStyle(color: Colors.white54),
+                enabledBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.white24),
+                ),
+                focusedBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Color(0xFFFF0000)),
+                ),
+              ),
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Informe o ano';
+                }
+                if (int.tryParse(value) == null) {
+                  return 'Ano inválido';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 16),
+
+            // Cilindrada
+            TextFormField(
+              controller: _ccController,
+              keyboardType: TextInputType.number,
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(
+                labelText: 'Cilindrada (cc) *',
+                labelStyle: TextStyle(color: Colors.white54),
+                enabledBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.white24),
+                ),
+                focusedBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Color(0xFFFF0000)),
+                ),
+              ),
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Informe a cilindrada';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 16),
+
+            // Apelido
+            TextFormField(
+              controller: _nicknameController,
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(
+                labelText: 'Apelido',
+                labelStyle: TextStyle(color: Colors.white54),
+                enabledBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.white24),
+                ),
+                focusedBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Color(0xFFFF0000)),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Placa
+            TextFormField(
+              controller: _plateController,
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(
+                labelText: 'Placa',
+                labelStyle: TextStyle(color: Colors.white54),
+                enabledBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.white24),
+                ),
+                focusedBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Color(0xFFFF0000)),
+                ),
+              ),
+            ),
+            const SizedBox(height: 32),
+
+            // Botão salvar
+            SizedBox(
+              width: double.infinity,
+              height: 54,
+              child: ElevatedButton(
+                onPressed: _loading ? null : _saveMotorcycle,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFFF0000),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                child: _loading
+                    ? const SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : const Text(
+                        'SALVAR MOTO',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1,
+                          fontSize: 15,
+                        ),
+                      ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

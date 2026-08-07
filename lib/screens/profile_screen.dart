@@ -113,14 +113,10 @@ class ProfileScreen extends StatelessWidget {
           _listTile(
             icon: Icons.motorcycle,
             title: 'Sem moto principal',
-            subtitle: 'Configure no site MotoHead',
-            onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: const Text('Configure sua moto no site MotoHead'),
-                backgroundColor: const Color(0xFFFF0000),
-                duration: const Duration(seconds: 2),
-                behavior: SnackBarBehavior.floating,
-              ),
+            subtitle: 'Adicione sua moto',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const AddMotorcycleScreen()),
             ),
           ),
           const SizedBox(height: 28),
