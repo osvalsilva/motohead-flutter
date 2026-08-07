@@ -244,23 +244,8 @@ class ProfileScreen extends StatelessWidget {
   }
 
   void _todo(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A1A),
-        title: const Text('Em breve', style: TextStyle(color: Colors.white)),
-        content: const Text(
-          'Gerenciamento completo disponível no site MotoHead.',
-          style: TextStyle(color: Colors.white70),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('OK', style: TextStyle(color: Color(0xFFFF0000))),
-          ),
-        ],
-      ),
-    );
+    // Placeholder - funcionalidades disponíveis no site MotoHead
+    // showDialog não funciona bem no Flutter Web
   }
 
   void _confirmLogout(
