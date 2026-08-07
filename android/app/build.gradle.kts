@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "com.motohead.motohead_app"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 34  // Android 14
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -17,7 +17,7 @@ android {
     defaultConfig {
         applicationId = "com.motohead.motohead_app"
         minSdk = 21  // Android 5.0 Lollipop
-        targetSdk = flutter.targetSdkVersion
+        targetSdk = 34  // Android 14
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
