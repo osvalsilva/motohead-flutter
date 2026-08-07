@@ -25,7 +25,7 @@ class LocationService {
 
   /// Posição atual com alta precisão.
   Future<Position> currentPosition({
-    LocationAccuracy accuracy = LocationAccuracy.high,
+    String accuracy = 'high',
   }) async {
     // TODO: Implementar quando geolocator for reativado
     throw UnimplementedError('Geolocator temporariamente desabilitado');
@@ -37,7 +37,7 @@ class LocationService {
   /// essa distância. Reduz consumo de bateria e volume de dados.
   Stream<Position> positionStream({
     double distanceFilterMeters = 10,
-    LocationAccuracy accuracy = LocationAccuracy.high,
+    String accuracy = 'high',
   }) {
     // TODO: Implementar quando geolocator for reativado
     return Stream.empty();
@@ -63,19 +63,6 @@ class Position {
   });
 }
 
-class LocationAccuracy {
-  static final high = LocationAccuracy._();
-  LocationAccuracy._();
-}
-
 class LocationSettings {
-  LocationSettings({required LocationAccuracy accuracy, required int distanceFilter});
+  LocationSettings({required String accuracy, required int distanceFilter});
 }
-
-class LocationPermission {}
-
-class LocationServiceDisabledException implements Exception {}
-
-class LocationPermission {}
-
-class LocationServiceDisabledException implements Exception {}
