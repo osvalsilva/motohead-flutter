@@ -18,16 +18,23 @@ class FriendProvider extends ChangeNotifier {
     _error = null;
     notifyListeners();
 
+    print('FriendProvider: Iniciando loadFriends');
+    print('FriendProvider: isAuthenticated = ${_apiService.isAuthenticated}');
+    print('FriendProvider: token = ${_apiService.token}');
+
     try {
       if (!_apiService.isAuthenticated) {
         _error = 'Você precisa estar logado para ver seus amigos';
         _friends = [];
+        print('FriendProvider: Usuário não autenticado');
       } else {
         final data = await _apiService.listFriends();
         _friends = data.map((json) => Friend.fromJson(json)).toList();
+        print('FriendProvider: Carregados ${_friends.length} amigos');
       }
     } catch (e) {
       // Se a API não estiver disponível ou houver erro de autenticação
+      print('FriendProvider: Erro ao carregar amigos: $e');
       _error = 'Adicione amigos pelo site MotoHead para usá-los como contatos de SOS';
       _friends = [];
     } finally {
