@@ -54,6 +54,10 @@ dependencies:
   geolocator: ^10.1.0
   geocoding: ^2.1.0
 
+  # Mapa com OpenStreetMap (Leaflet)
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

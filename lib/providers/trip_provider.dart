@@ -49,6 +49,8 @@ class TripProvider extends ChangeNotifier {
   int get movingSeconds => _movingSeconds;
   int get totalDurationSeconds => _totalDurationSeconds;
   double get currentSpeed => _currentSpeed;
+  double? get lastLat => _lastLat;
+  double? get lastLng => _lastLng;
 
   /// Carrega histórico de viagens do usuário.
   Future<void> loadHistory() async {

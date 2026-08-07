@@ -2,6 +2,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../providers/trip_provider.dart';
 import '../providers/friend_provider.dart';
@@ -77,8 +79,8 @@ class _TripTrackingScreenState extends State<TripTrackingScreen> {
                                 'km percorridos'),
                             const SizedBox(width: 30),
                             _stat(
-                                '${(trips.movingSeconds ~/ 3600).toString().padLeft(2, '0')}:'
-                                '${((trips.movingSeconds % 3600) ~/ 60).toString().padLeft(2, '0')}',
+                                '${(trips.totalDurationSeconds ~/ 3600).toString().padLeft(2, '0')}:'
+                                '${((trips.totalDurationSeconds % 3600) ~/ 60).toString().padLeft(2, '0')}',
                                 'duração'),
                           ],
                         ),
@@ -233,8 +235,8 @@ class _TripTrackingScreenState extends State<TripTrackingScreen> {
             _row('Distância',
                 '${trips.currentDistanceKm.toStringAsFixed(0)} km'),
             _row('Tempo em movimento',
-                '${(trips.movingSeconds ~/ 3600).toString().padLeft(2, '0')}h'
-                '${((trips.movingSeconds % 3600) ~/ 60).toString().padLeft(2, '0')}min'),
+                '${(trips.totalDurationSeconds ~/ 3600).toString().padLeft(2, '0')}h'
+                '${((trips.totalDurationSeconds % 3600) ~/ 60).toString().padLeft(2, '0')}min'),
           ],
         ),
         actions: [
@@ -476,18 +478,40 @@ class _MapPlaceholder extends StatelessWidget {
       color: const Color(0xFF0A0A0A),
       child: Stack(
         children: [
-          // Grade simulando mapa
-          CustomPaint(
-            size: Size.infinite,
-            painter: _GridPainter(),
+          // Mapa com OpenStreetMap
+          FlutterMap(
+            options: MapOptions(
+              initialCenter: trips.lastLat != null && trips.lastLng != null
+                  ? LatLng(trips.lastLat!, trips.lastLng!)
+                  : const LatLng(-22.9769, -49.8686),
+              initialZoom: 16.0,
+            ),
+            children: [
+              TileLayer(
+                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                userAgentPackageName: 'com.motohead.app',
+              ),
+              if (trips.lastLat != null && trips.lastLng != null)
+                MarkerLayer(
+                  markers: [
+                    Marker(
+                      point: LatLng(trips.lastLat!, trips.lastLng!),
+                      width: 40,
+                      height: 40,
+                      child: const Icon(
+                        Icons.location_on,
+                        color: Color(0xFFFF0000),
+                        size: 40,
+                      ),
+                    ),
+                  ],
+                ),
+            ],
           ),
           Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.location_on,
-                    color: Color(0xFFFF0000), size: 48),
-                const SizedBox(height: 8),
                 Text(
                   trips.paused ? 'VIAGEM PAUSADA' : 'TRACKING ATIVO',
                   style: const TextStyle(
@@ -495,11 +519,6 @@ class _MapPlaceholder extends StatelessWidget {
                     fontWeight: FontWeight.bold,
                     letterSpacing: 2,
                   ),
-                ),
-                const SizedBox(height: 4),
-                const Text(
-                  'Mapa requer Google Maps API key',
-                  style: TextStyle(color: Colors.white24, fontSize: 11),
                 ),
               ],
             ),
@@ -537,21 +556,4 @@ class _MapPlaceholder extends StatelessWidget {
   }
 }
 
-class _GridPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.white.withOpacity(0.04)
-      ..strokeWidth = 1;
-    const step = 40.0;
-    for (double x = 0; x < size.width; x += step) {
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
-    }
-    for (double y = 0; y < size.height; y += step) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
-    }
-  }
 
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
