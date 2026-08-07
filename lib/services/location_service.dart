@@ -64,7 +64,7 @@ class Position {
 }
 
 class LocationAccuracy {
-  static const high = LocationAccuracy._();
+  static final high = LocationAccuracy._();
   LocationAccuracy._();
 }
 
