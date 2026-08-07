@@ -19,10 +19,15 @@ class FriendProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final data = await _apiService.listFriends();
-      _friends = data.map((json) => Friend.fromJson(json)).toList();
+      if (!_apiService.isAuthenticated) {
+        _error = 'Você precisa estar logado para ver seus amigos';
+        _friends = [];
+      } else {
+        final data = await _apiService.listFriends();
+        _friends = data.map((json) => Friend.fromJson(json)).toList();
+      }
     } catch (e) {
-      // Se a API não estiver disponível, mostra mensagem amigável
+      // Se a API não estiver disponível ou houver erro de autenticação
       _error = 'Adicione amigos pelo site MotoHead para usá-los como contatos de SOS';
       _friends = [];
     } finally {
