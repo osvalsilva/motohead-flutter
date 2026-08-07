@@ -52,14 +52,21 @@ class TripProvider extends ChangeNotifier {
     notifyListeners();
     try {
       _history = await _api.listTrips();
+      print('TripProvider.loadHistory: Carregadas ${_history.length} viagens');
+      print('TripProvider.loadHistory: Status das viagens: ${_history.map((t) => t.status).toList()}');
       // Detecta viagem ativa no servidor.
       final active = _history.firstWhereOrNull((t) => t.isActive);
-      if (active != null && _activeTrip == null) {
+      print('TripProvider.loadHistory: Viagem ativa encontrada: ${active != null}');
+      if (active != null) {
+        print('TripProvider.loadHistory: ID da viagem ativa: ${active.id}, Status: ${active.status}');
         _activeTrip = active;
+        print('TripProvider.loadHistory: hasActiveTrip após carregar: $hasActiveTrip');
       }
     } on ApiException catch (e) {
+      print('TripProvider.loadHistory: Erro API: ${e.message}');
       _error = e.message;
     } catch (e) {
+      print('TripProvider.loadHistory: Erro: $e');
       _error = 'Falha ao carregar viagens: $e';
     } finally {
       _loading = false;
