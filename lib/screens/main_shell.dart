@@ -30,12 +30,9 @@ class _MainShellState extends State<MainShell> {
   void initState() {
     super.initState();
     // Carrega histórico ao entrar no app.
-    // Temporariamente desabilitado devido a erro na API
-    /*
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<TripProvider>().loadHistory();
     });
-    */
   }
 
   @override

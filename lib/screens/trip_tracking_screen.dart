@@ -32,11 +32,6 @@ class _TripTrackingScreenState extends State<TripTrackingScreen> {
   Widget build(BuildContext context) {
     final trips = context.watch<TripProvider>();
     final hasActive = trips.hasActiveTrip || trips.paused;
-    
-    print('TripTrackingScreen: hasActive = $hasActive, hasActiveTrip = ${trips.hasActiveTrip}, paused = ${trips.paused}');
-    if (trips.activeTrip != null) {
-      print('TripTrackingScreen: activeTrip - ID: ${trips.activeTrip!.id}, Status: ${trips.activeTrip!.status}, IsActive: ${trips.activeTrip!.isActive}');
-    }
 
     return Scaffold(
       backgroundColor: const Color(0xFF0D0D0D),

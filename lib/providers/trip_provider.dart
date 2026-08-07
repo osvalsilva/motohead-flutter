@@ -90,7 +90,6 @@ class TripProvider extends ChangeNotifier {
         startLat: pos.latitude,
         startLng: pos.longitude,
       );
-      print('TripProvider: Viagem iniciada - ID: ${trip.id}, Status: ${trip.status}, IsActive: ${trip.isActive}');
       _activeTrip = trip;
       _currentDistanceKm = 0;
       _movingSeconds = 0;
@@ -99,7 +98,6 @@ class TripProvider extends ChangeNotifier {
       _lastLng = pos.longitude;
       _lastPointAt = DateTime.now();
       _paused = false;
-      print('TripProvider: hasActiveTrip após iniciar: $hasActiveTrip');
       notifyListeners();
 
       // Envia o primeiro ponto.
