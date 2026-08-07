@@ -45,13 +45,33 @@ class LocationService {
 }
 
 // Classes stub para compatibilidade
-class Position {}
+class Position {
+  final double latitude;
+  final double longitude;
+  final double altitude;
+  final double speed;
+  final double heading;
+  final double accuracy;
+
+  Position({
+    required this.latitude,
+    required this.longitude,
+    this.altitude = 0.0,
+    this.speed = 0.0,
+    this.heading = 0.0,
+    this.accuracy = 0.0,
+  });
+}
+
 class LocationAccuracy {
   static const high = LocationAccuracy._();
   LocationAccuracy._();
 }
+
 class LocationSettings {
   LocationSettings({required LocationAccuracy accuracy, required int distanceFilter});
 }
+
 class LocationPermission {}
+
 class LocationServiceDisabledException implements Exception {}
