@@ -218,6 +218,19 @@ class _SosContactsScreenState extends State<SosContactsScreen> {
     });
   }
 
+  // Lista de IDs de amigos selecionados como contatos SOS
+  final Set<int> _selectedFriendIds = {};
+
+  void _toggleFriend(int friendId) {
+    setState(() {
+      if (_selectedFriendIds.contains(friendId)) {
+        _selectedFriendIds.remove(friendId);
+      } else {
+        _selectedFriendIds.add(friendId);
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -379,10 +392,8 @@ class _SosContactsScreenState extends State<SosContactsScreen> {
             ),
           ),
           Switch(
-            value: false, // TODO: Implementar persistência de contatos SOS
-            onChanged: (value) {
-              // TODO: Implementar toggle de contato SOS
-            },
+            value: _selectedFriendIds.contains(friend.id),
+            onChanged: (value) => _toggleFriend(friend.id),
             activeColor: const Color(0xFFFF0000),
           ),
         ],
