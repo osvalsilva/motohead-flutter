@@ -64,15 +64,22 @@ class TripProvider extends ChangeNotifier {
       if (active != null) {
         _activeTrip = active;
         // Inicia o stream de GPS para a viagem ativa
-        final ok = await _location.ensurePermission();
-        if (ok) {
-          _startStream();
-          _startTicker();
-          // Carrega a posição atual para o mapa
-          final pos = await _location.currentPosition();
-          _lastLat = pos.latitude;
-          _lastLng = pos.longitude;
-          notifyListeners();
+        try {
+          final ok = await _location.ensurePermission();
+          if (ok) {
+            _startStream();
+            _startTicker();
+            // Carrega a posição atual para o mapa
+            final pos = await _location.currentPosition();
+            _lastLat = pos.latitude;
+            _lastLng = pos.longitude;
+            notifyListeners();
+          }
+        } on UnimplementedError catch (e) {
+          // Geolocator desabilitado no web, não impede o carregamento
+          print('Geolocator desabilitado no web: $e');
+        } catch (e) {
+          print('Erro ao iniciar GPS: $e');
         }
       }
     } on ApiException catch (e) {
@@ -96,7 +103,7 @@ class TripProvider extends ChangeNotifier {
     try {
       final ok = await _location.ensurePermission();
       if (!ok) {
-        _error = 'Permissão de localização negada';
+        _error = 'Permissão de localização negada. Ative o GPS nas configurações do dispositivo.';
         notifyListeners();
         return false;
       }
@@ -128,6 +135,10 @@ class TripProvider extends ChangeNotifier {
       // Começa o ticker de duração.
       _startTicker();
       return true;
+    } on UnimplementedError catch (e) {
+      _error = 'Geolocator temporariamente desabilitado. Verifique se o GPS está ativado nas configurações do navegador.';
+      notifyListeners();
+      return false;
     } on ApiException catch (e) {
       _error = e.message;
       notifyListeners();

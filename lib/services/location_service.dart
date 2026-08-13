@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 
 /// Serviço de localização GPS para o tracking de viagem (spec §6).
@@ -39,16 +41,36 @@ class LocationService {
   }
 
   /// Posição atual com alta precisão.
+  /// Se estiver no web e o GPS não estiver disponível, retorna uma posição simulada.
   Future<Position> currentPosition({
     String accuracy = 'high',
   }) async {
-    LocationAccuracy locationAccuracy = accuracy == 'high'
-        ? LocationAccuracy.high
-        : LocationAccuracy.medium;
-    
-    return await Geolocator.getCurrentPosition(
-      desiredAccuracy: locationAccuracy,
-    );
+    try {
+      LocationAccuracy locationAccuracy = accuracy == 'high'
+          ? LocationAccuracy.high
+          : LocationAccuracy.medium;
+      
+      return await Geolocator.getCurrentPosition(
+        desiredAccuracy: locationAccuracy,
+      );
+    } catch (e) {
+      // Se falhar no web, retorna uma posição simulada
+      if (kIsWeb) {
+        return Position(
+          latitude: -22.9769,
+          longitude: -49.8686,
+          timestamp: DateTime.now(),
+          accuracy: 100,
+          altitude: 0,
+          altitudeAccuracy: 0,
+          heading: 0,
+          headingAccuracy: 0,
+          speed: 0,
+          speedAccuracy: 0,
+        );
+      }
+      rethrow;
+    }
   }
 
   /// Stream de posições para tracking contínuo (spec §6).
