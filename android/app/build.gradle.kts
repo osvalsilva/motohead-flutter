@@ -16,7 +16,7 @@ android {
 
     defaultConfig {
         applicationId = "com.motohead.motohead_app"
-        minSdk = 21  // Android 5.0 Lollipop
+        minSdk = flutter.minSdkVersion  // Android 5.0 Lollipop
         targetSdk = 34  // Android 14
         versionCode = flutter.versionCode
         versionName = flutter.versionName
