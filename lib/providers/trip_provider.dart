@@ -176,9 +176,9 @@ class TripProvider extends ChangeNotifier {
   }
 
   Future<void> _sendPoint(Position pos) async {
-    print('TripProvider._sendPoint: Enviando ponto - Lat: ${pos.latitude}, Lng: ${pos.longitude}');
+    
     if (_activeTrip == null) {
-      print('TripProvider._sendPoint: Nenhuma viagem ativa, ignorando');
+      
       return;
     }
     try {
@@ -190,13 +190,13 @@ class TripProvider extends ChangeNotifier {
         );
         if (meters > 5) {
           _currentDistanceKm += meters / 1000.0;
-          print('TripProvider._sendPoint: Distância adicionada: ${meters}m, Total: $_currentDistanceKm km');
+          
         }
       }
       _currentSpeed = (pos.speed * 3.6); // m/s -> km/h
       if (_currentSpeed >= 2 && _lastPointAt != null) {
         _movingSeconds += DateTime.now().difference(_lastPointAt!).inSeconds;
-        print('TripProvider._sendPoint: Moving seconds: $_movingSeconds, Speed: $_currentSpeed km/h');
+        
       }
       _lastLat = pos.latitude;
       _lastLng = pos.longitude;
