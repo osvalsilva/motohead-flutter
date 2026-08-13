@@ -63,6 +63,17 @@ class TripProvider extends ChangeNotifier {
       final active = _history.firstWhereOrNull((t) => t.isActive);
       if (active != null) {
         _activeTrip = active;
+        // Inicia o stream de GPS para a viagem ativa
+        final ok = await _location.ensurePermission();
+        if (ok) {
+          _startStream();
+          _startTicker();
+          // Carrega a posição atual para o mapa
+          final pos = await _location.currentPosition();
+          _lastLat = pos.latitude;
+          _lastLng = pos.longitude;
+          notifyListeners();
+        }
       }
     } on ApiException catch (e) {
       _error = e.message;
