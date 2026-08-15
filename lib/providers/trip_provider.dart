@@ -254,12 +254,9 @@ class TripProvider extends ChangeNotifier with WidgetsBindingObserver {
         _currentSpeed = (pos.speed * 3.6); // m/s -> km/h
         notifyListeners();
 
-        // Aplica regras para decidir se grava o ponto
+        // Grava todos os pontos recebidos
         if (_shouldRecordPoint(pos)) {
-          AppLogger.log('TRACKING', 'Ponto APROVADO para gravação');
           await _sendPoint(pos);
-        } else {
-          AppLogger.log('TRACKING', 'Ponto rejeitado pelas regras de distância/speed');
         }
       },
       onError: (e) {
@@ -270,14 +267,8 @@ class TripProvider extends ChangeNotifier with WidgetsBindingObserver {
     );
   }
 
-  /// Regras para gravação de pontos:
-  /// 1. Primeiro ponto: sempre grava
-  /// 2. Se moveu >= 3m: grava (mesmo com speed=0 — Android frequentemente
-  ///    reporta speed=0.0 mesmo em movimento)
-  /// 3. Se speed >= 2 km/h e moveu >= 2m: grava
-  /// 4. Se parado (speed < 2 E distância < 2m): não grava
+  /// Grava todos os pontos recebidos do GPS, sem restrições de distância/speed.
   bool _shouldRecordPoint(Position pos) {
-    // Sem último ponto gravado — registra o primeiro
     if (_lastSentLat == null || _lastSentLng == null) {
       AppLogger.log('TRACKING', 'Primeiro ponto — sempre grava');
       return true;
@@ -286,21 +277,10 @@ class TripProvider extends ChangeNotifier with WidgetsBindingObserver {
     final meters = _calculateDistance(
       _lastSentLat!, _lastSentLng!, pos.latitude, pos.longitude,
     );
-
     final speedKmh = pos.speed * 3.6;
     AppLogger.log('TRACKING', 'Distância desde último gravado: ${meters.toStringAsFixed(1)}m, speed: ${speedKmh.toStringAsFixed(1)}km/h');
 
-    // Parado de verdade (speed baixo E não se moveu quase nada) — não conta
-    if (speedKmh < 2 && meters < 2) return false;
-
-    // Se se moveu >= 3m, grava independente da speed
-    // (Android frequentemente reporta speed=0.0 mesmo em movimento)
-    if (meters >= 3) return true;
-
-    // Se tem speed >= 2 e se moveu pelo menos 2m, grava
-    if (speedKmh >= 2 && meters >= 2) return true;
-
-    return false;
+    return true;
   }
 
   void _startTicker() {
