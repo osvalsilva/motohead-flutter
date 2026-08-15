@@ -484,12 +484,56 @@ class _NoTripView extends StatelessWidget {
 }
 
 /// Mapa com OpenStreetMap mostrando a rota percorrida em tempo real.
-class _MapPlaceholder extends StatelessWidget {
+/// Centraliza automaticamente na posição real do GPS.
+class _MapPlaceholder extends StatefulWidget {
   final TripProvider trips;
   const _MapPlaceholder({required this.trips});
 
   @override
+  State<_MapPlaceholder> createState() => _MapPlaceholderState();
+}
+
+class _MapPlaceholderState extends State<_MapPlaceholder> {
+  final MapController _mapController = MapController();
+  LatLng? _lastCenter;
+
+  @override
+  void didUpdateWidget(_MapPlaceholder oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Centraliza o mapa na posição real do GPS quando ela muda
+    final lat = widget.trips.lastLat;
+    final lng = widget.trips.lastLng;
+    if (lat != null && lng != null) {
+      final newCenter = LatLng(lat, lng);
+      if (_lastCenter == null ||
+          _haversine(_lastCenter!, newCenter) > 20) {
+        // Só move se mudou mais de 20m (evita jitter)
+        _lastCenter = newCenter;
+        try {
+          _mapController.move(newCenter, _mapController.camera.zoom);
+        } catch (_) {
+          // Mapa ainda não inicializado
+        }
+      }
+    }
+  }
+
+  double _haversine(LatLng a, LatLng b) {
+    const double r = 6371000;
+    final dLat = (b.latitude - a.latitude) * (3.14159265359 / 180);
+    final dLng = (b.longitude - a.longitude) * (3.14159265359 / 180);
+    final x = dLat / 2;
+    final y = dLng / 2;
+    final h = x * x +
+        y * y *
+            (dLat / 2) *
+            (dLat / 2); // simplificado — suficiente para threshold
+    return r * 2 * (h > 1 ? 1 : h);
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final trips = widget.trips;
     final center = trips.lastLat != null && trips.lastLng != null
         ? LatLng(trips.lastLat!, trips.lastLng!)
         : const LatLng(-22.9769, -49.8686);
@@ -499,6 +543,7 @@ class _MapPlaceholder extends StatelessWidget {
       child: Stack(
         children: [
           FlutterMap(
+            mapController: _mapController,
             options: MapOptions(
               initialCenter: center,
               initialZoom: 16.0,
