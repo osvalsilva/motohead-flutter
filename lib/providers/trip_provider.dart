@@ -106,18 +106,10 @@ class TripProvider extends ChangeNotifier with WidgetsBindingObserver {
         _currentDistanceKm = active.distanceKm;
         _totalDurationSeconds = active.durationSeconds;
         _movingSeconds = active.movingSeconds;
-        // Calcula tempo total a partir do start_time do servidor
-        if (active.startTime != null) {
-          try {
-            final start = DateTime.parse(active.startTime!);
-            _tripStartTime = start;
-            // Atualiza duração com tempo real decorrido
-            final elapsed = DateTime.now().difference(start).inSeconds;
-            if (elapsed > _totalDurationSeconds) {
-              _totalDurationSeconds = elapsed;
-            }
-          } catch (_) {}
-        }
+        // Calcula _tripStartTime a partir da durationSeconds do servidor
+        // (evita problema de fuso horário entre servidor e celular)
+        _tripStartTime = DateTime.now().subtract(Duration(seconds: active.durationSeconds));
+        AppLogger.log('TRACKING', 'Viagem ativa restaurada — duração: ${active.durationSeconds}s, distância: ${active.distanceKm}km');
         notifyListeners();
         // Inicia o stream de GPS para a viagem ativa
         try {
@@ -193,16 +185,11 @@ class TripProvider extends ChangeNotifier with WidgetsBindingObserver {
       _lastSentLat = null;  // Será setado no primeiro _sendPoint
       _lastSentLng = null;
       _lastPointAt = DateTime.now();
-      // Usa o start_time do servidor se disponível, senão usa agora
-      if (trip.startTime != null) {
-        try {
-          _tripStartTime = DateTime.parse(trip.startTime!);
-        } catch (_) {
-          _tripStartTime = DateTime.now();
-        }
-      } else {
-        _tripStartTime = DateTime.now();
-      }
+      // Usa DateTime.now() do celular para cálculo de duração em tempo real.
+      // O start_time do servidor pode estar em fuso diferente, causando erro.
+      // O backend recalcula a duração correta no finishTrip usando NOW() - start_time.
+      _tripStartTime = DateTime.now();
+      AppLogger.log('TRACKING', 'Viagem iniciada — start_time local: $_tripStartTime');
       _paused = false;
       _routePoints.clear();
       _routePoints.add(LatLng(pos.latitude, pos.longitude));
@@ -283,10 +270,11 @@ class TripProvider extends ChangeNotifier with WidgetsBindingObserver {
     );
   }
 
-  /// Regras simples para gravação de pontos:
+  /// Regras para gravação de pontos:
   /// 1. Primeiro ponto: sempre grava
-  /// 2. Pontos seguintes: grava se se moveu > 10m da última posição gravada
-  /// 3. Se parado (speed < 2 E distância < 5m): não grava
+  /// 2. Se moveu >= 5m: grava (mesmo parado — captura pequenas variações)
+  /// 3. Se speed >= 2 km/h e moveu >= 3m: grava
+  /// 4. Se parado (speed < 2 E distância < 3m): não grava
   bool _shouldRecordPoint(Position pos) {
     // Sem último ponto gravado — registra o primeiro
     if (_lastSentLat == null || _lastSentLng == null) {
@@ -301,15 +289,14 @@ class TripProvider extends ChangeNotifier with WidgetsBindingObserver {
     final speedKmh = pos.speed * 3.6;
     AppLogger.log('TRACKING', 'Distância desde último gravado: ${meters.toStringAsFixed(1)}m, speed: ${speedKmh.toStringAsFixed(1)}km/h');
 
-    // Parado de verdade — não conta
-    if (speedKmh < 2 && meters < 5) return false;
+    // Parado de verdade (speed baixo E não se moveu quase nada) — não conta
+    if (speedKmh < 2 && meters < 3) return false;
 
-    // Se speed=0 mas se moveu > 10m, está em movimento (Android não reporta speed)
-    // Grava se se moveu pelo menos 10m
-    if (meters >= 10) return true;
+    // Se se moveu >= 5m, grava independente da speed
+    if (meters >= 5) return true;
 
-    // Se tem speed > 2 e se moveu pelo menos 5m, grava
-    if (speedKmh >= 2 && meters >= 5) return true;
+    // Se tem speed >= 2 e se moveu pelo menos 3m, grava
+    if (speedKmh >= 2 && meters >= 3) return true;
 
     return false;
   }
