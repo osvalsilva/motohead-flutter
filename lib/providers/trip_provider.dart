@@ -62,8 +62,10 @@ class TripProvider extends ChangeNotifier with WidgetsBindingObserver {
   int _movingSeconds = 0;
   int _totalDurationSeconds = 0; // Duração total da viagem (incluindo paradas)
   double _currentSpeed = 0;
-  double? _lastLat;
+  double? _lastLat;       // Última posição recebida do GPS (para o mapa)
   double? _lastLng;
+  double? _lastSentLat;   // Última posição gravada/enviada (para cálculo de distância)
+  double? _lastSentLng;
   DateTime? _lastPointAt;
   DateTime? _tripStartTime; // Quando a viagem foi iniciada
   StreamSubscription<Position>? _sub;
@@ -187,6 +189,8 @@ class TripProvider extends ChangeNotifier with WidgetsBindingObserver {
       _currentSpeed = 0;
       _lastLat = pos.latitude;
       _lastLng = pos.longitude;
+      _lastSentLat = null;  // Será setado no primeiro _sendPoint
+      _lastSentLng = null;
       _lastPointAt = DateTime.now();
       // Usa o start_time do servidor se disponível, senão usa agora
       if (trip.startTime != null) {
@@ -272,29 +276,37 @@ class TripProvider extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   /// Regras inteligentes para contagem de pontos:
-  /// - Parado (< 2 km/h): não conta ponto (ignora pequenas variações de GPS)
-  /// - Baixa velocidade (2-30 km/h): conta pontos a cada 10m (absorve variações de curva)
+  /// - Parado (velocidade 0 E sem movimento): não conta ponto
+  /// - Baixa velocidade (0-30 km/h): conta pontos a cada 10m (absorve curvas)
   /// - Média velocidade (30-80 km/h): conta pontos a cada 50m
-  /// - Alta velocidade (> 80 km/h): conta pontos a cada 150m (linha reta, menos pontos)
+  /// - Alta velocidade (> 80 km/h): conta pontos a cada 150m (linha reta)
+  ///
+  /// Importante: pos.speed pode ser 0 em alguns dispositivos mesmo em movimento.
+  /// Por isso, se a distância percorrida for significativa (> 15m), grava mesmo
+  /// com speed=0 — o movimento real é detectado pela distância.
   bool _shouldRecordPoint(Position pos) {
     final speedKmh = pos.speed * 3.6;
 
-    // Parado — não conta ponto
-    if (speedKmh < 2) return false;
-
-    // Sem último ponto — registra o primeiro
-    if (_lastLat == null || _lastLng == null) return true;
+    // Sem último ponto gravado — registra o primeiro
+    if (_lastSentLat == null || _lastSentLng == null) return true;
 
     final meters = _calculateDistance(
-      _lastLat!, _lastLng!, pos.latitude, pos.longitude,
+      _lastSentLat!, _lastSentLng!, pos.latitude, pos.longitude,
     );
 
-    // Distância mínima baseada na velocidade
+    // Se speed=0 mas se moveu mais de 15m, o dispositivo está em movimento
+    // (muitos Androids não reportam speed corretamente)
+    final effectiveSpeed = (speedKmh < 2 && meters > 15) ? 10.0 : speedKmh;
+
+    // Parado de verdade (speed baixo E não se moveu) — não conta
+    if (effectiveSpeed < 2 && meters < 5) return false;
+
+    // Distância mínima baseada na velocidade efetiva
     double minDistance;
-    if (speedKmh < 30) {
+    if (effectiveSpeed < 30) {
       // Baixa velocidade: mais pontos para capturar curvas e variações
       minDistance = 10;
-    } else if (speedKmh < 80) {
+    } else if (effectiveSpeed < 80) {
       // Média velocidade: pontos moderados
       minDistance = 50;
     } else {
@@ -328,13 +340,17 @@ class TripProvider extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> _sendPoint(Position pos) async {
     if (_activeTrip == null) return;
     try {
-      // Atualiza estatísticas locais
-      if (_lastLat != null && _lastLng != null) {
+      // Calcula distância desde o último ponto GRAVADO (não desde o último recebido)
+      if (_lastSentLat != null && _lastSentLng != null) {
         final meters = _calculateDistance(
-          _lastLat!, _lastLng!, pos.latitude, pos.longitude,
+          _lastSentLat!, _lastSentLng!, pos.latitude, pos.longitude,
         );
         _currentDistanceKm += meters / 1000.0;
       }
+      // Atualiza último ponto gravado
+      _lastSentLat = pos.latitude;
+      _lastSentLng = pos.longitude;
+
       if (_currentSpeed >= 2 && _lastPointAt != null) {
         _movingSeconds += DateTime.now().difference(_lastPointAt!).inSeconds;
       }
@@ -424,6 +440,8 @@ class TripProvider extends ChangeNotifier with WidgetsBindingObserver {
       _movingSeconds = 0;
       _totalDurationSeconds = 0;
       _currentSpeed = 0;
+      _lastSentLat = null;
+      _lastSentLng = null;
       _routePoints.clear();
       notifyListeners();
       return true;
