@@ -325,12 +325,26 @@ class TripProvider extends ChangeNotifier with WidgetsBindingObserver {
     if (_activeTrip == null) return;
     try {
       // Calcula distância desde o último ponto GRAVADO
+      double metersMoved = 0;
       if (_lastSentLat != null && _lastSentLng != null) {
-        final meters = _calculateDistance(
+        metersMoved = _calculateDistance(
           _lastSentLat!, _lastSentLng!, pos.latitude, pos.longitude,
         );
-        _currentDistanceKm += meters / 1000.0;
+        _currentDistanceKm += metersMoved / 1000.0;
       }
+
+      // Calcula velocidade: se pos.speed for 0 (comum em muitos Androids),
+      // calcula manualmente a partir da distância e tempo entre pontos
+      double speedMs = pos.speed;
+      if (speedMs <= 0 && _lastPointAt != null && metersMoved > 0) {
+        final elapsedSec = DateTime.now().difference(_lastPointAt!).inSeconds;
+        if (elapsedSec > 0) {
+          speedMs = metersMoved / elapsedSec;
+          AppLogger.log('TRACKING', 'Speed calculada manualmente: ${(speedMs * 3.6).toStringAsFixed(1)}km/h (dist=${metersMoved.toStringAsFixed(1)}m em ${elapsedSec}s)');
+        }
+      }
+      _currentSpeed = speedMs * 3.6; // m/s -> km/h
+
       // Atualiza último ponto gravado
       _lastSentLat = pos.latitude;
       _lastSentLng = pos.longitude;
@@ -343,13 +357,13 @@ class TripProvider extends ChangeNotifier with WidgetsBindingObserver {
       _routePoints.add(LatLng(pos.latitude, pos.longitude));
       notifyListeners();
 
-      AppLogger.log('TRACKING', 'Enviando ponto à API: trip=${_activeTrip!.id} lat=${pos.latitude} lng=${pos.longitude}');
+      AppLogger.log('TRACKING', 'Enviando ponto à API: trip=${_activeTrip!.id} lat=${pos.latitude} lng=${pos.longitude} speed=${_currentSpeed.toStringAsFixed(1)}km/h');
       await _api.addPoint(
         _activeTrip!.id,
         lat: pos.latitude,
         lng: pos.longitude,
         altitude: pos.altitude,
-        speed: pos.speed,
+        speed: speedMs, // envia speed em m/s (calculada se device não reportou)
         heading: pos.heading,
         accuracy: pos.accuracy,
         recordedAt: DateTime.now().toIso8601String(),
