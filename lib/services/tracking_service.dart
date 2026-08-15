@@ -65,7 +65,6 @@ class TrackingService {
       'MotoHead Tracking',
       description: 'Notificação de tracking de viagem ativa',
       importance: Importance.high,
-      visibility: NotificationVisibility.public,
       enableVibration: false,
       playSound: false,
     );
@@ -240,7 +239,7 @@ class TrackingService {
     // Escuta comando de parada
     service.on('stop').listen((event) {
       subscription.cancel();
-      notifTimer.cancel();
+      notifTimer?.cancel();
       service.stopSelf();
     });
 

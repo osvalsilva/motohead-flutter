@@ -210,6 +210,11 @@ class ApiService {
     }) as Map<String, dynamic>;
   }
 
+  /// POST /api/tracking/trips/{id}/delete — apaga uma viagem
+  Future<void> deleteTrip(int tripId) async {
+    await _post('/api/tracking/trips/$tripId/delete');
+  }
+
   // ----------------------- SOS -----------------------
 
   /// POST /api/sos/trigger — Aciona o SOS

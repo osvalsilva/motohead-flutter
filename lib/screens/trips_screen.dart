@@ -80,8 +80,18 @@ class TripsScreen extends StatelessWidget {
                         ),
                       ),
                     )
-                  else
+                  else ...[
                     ...trips.history.map((t) => _TripTile(trip: t)),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                      child: Center(
+                        child: Text(
+                          'Deslize para a esquerda para apagar',
+                          style: TextStyle(color: Colors.white24, fontSize: 11),
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
       ),
@@ -294,58 +304,124 @@ class _TripTile extends StatelessWidget {
     final dateStr = trip.createdAt != null
         ? _formatDate(trip.createdAt!)
         : '';
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1A1A1A),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
+    final canDelete = trip.status != 'active' && trip.status != 'paused';
+    return Dismissible(
+      key: ValueKey('trip-${trip.id}'),
+      direction: canDelete
+          ? DismissDirection.endToStart
+          : DismissDirection.none,
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        margin: const EdgeInsets.only(bottom: 10),
+        decoration: BoxDecoration(
+          color: Colors.red,
           borderRadius: BorderRadius.circular(10),
-          onTap: () {
-            // Abre a página de detalhes com mapa e traçado da rota
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => TripDetailScreen(trip: trip),
+        ),
+        child: const Icon(Icons.delete, color: Colors.white, size: 28),
+      ),
+      confirmDismiss: (direction) async {
+        return await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            backgroundColor: const Color(0xFF1A1A1A),
+            title: const Text('Apagar viagem?',
+                style: TextStyle(color: Colors.white)),
+            content: Text(
+              'Tem certeza que deseja apagar "${trip.title ?? 'Viagem sem nome'}"? '
+              'Esta ação não pode ser desfeita.',
+              style: const TextStyle(color: Colors.white70),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('CANCELAR',
+                    style: TextStyle(color: Colors.white54)),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                child: const Text('APAGAR'),
+              ),
+            ],
+          ),
+        );
+      },
+      onDismissed: (direction) async {
+        final trips = context.read<TripProvider>();
+        final ok = await trips.deleteTrip(trip.id);
+        if (context.mounted) {
+          if (ok) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Viagem apagada com sucesso'),
+                backgroundColor: Colors.green,
+                duration: Duration(seconds: 2),
               ),
             );
-          },
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (dateStr.isNotEmpty)
-                        Text(dateStr,
-                            style: const TextStyle(
-                                color: Color(0xFFFF0000),
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 4),
-                      Text(
-                        trip.title ?? 'Viagem sem nome',
-                        style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w500),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${trip.distanceFormatted} • ${trip.durationFormatted}',
-                        style: const TextStyle(
-                            color: Colors.white38, fontSize: 12),
-                      ),
-                    ],
-                  ),
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(trips.error ?? 'Falha ao apagar viagem'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        }
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1A1A1A),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(10),
+            onTap: () {
+              // Abre a página de detalhes com mapa e traçado da rota
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => TripDetailScreen(trip: trip),
                 ),
-                _statusChip(trip.status),
-              ],
+              );
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (dateStr.isNotEmpty)
+                          Text(dateStr,
+                              style: const TextStyle(
+                                  color: Color(0xFFFF0000),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 4),
+                        Text(
+                          trip.title ?? 'Viagem sem nome',
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w500),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${trip.distanceFormatted} • ${trip.durationFormatted}',
+                          style: const TextStyle(
+                              color: Colors.white38, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                  _statusChip(trip.status),
+                ],
+              ),
             ),
           ),
         ),

@@ -343,6 +343,31 @@ class TripProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Apaga uma viagem do histórico (spec §13: gerenciar viagens).
+  /// Não permite apagar viagem ativa/pausada.
+  Future<bool> deleteTrip(int tripId) async {
+    _loading = true;
+    _error = null;
+    notifyListeners();
+    try {
+      await _api.deleteTrip(tripId);
+      _history.removeWhere((t) => t.id == tripId);
+      notifyListeners();
+      return true;
+    } on ApiException catch (e) {
+      _error = e.message;
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _error = 'Falha ao apagar viagem: $e';
+      notifyListeners();
+      return false;
+    } finally {
+      _loading = false;
+      notifyListeners();
+    }
+  }
+
   /// Cálculo de distância entre dois pontos (fórmula de Haversine).
   double _calculateDistance(double lat1, double lng1, double lat2, double lng2) {
     const double earthRadius = 6371000; // metros
