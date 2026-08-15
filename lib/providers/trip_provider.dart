@@ -432,6 +432,8 @@ class TripProvider extends ChangeNotifier with WidgetsBindingObserver {
       _lastSentLng = null;
       _routePoints.clear();
       notifyListeners();
+      // Envia logs ao servidor automaticamente após finalizar viagem
+      AppLogger.instance.uploadToServer();
       return true;
     } on ApiException catch (e) {
       _error = e.message;

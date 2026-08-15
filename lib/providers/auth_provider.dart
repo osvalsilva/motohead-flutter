@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../models/user.dart';
 import '../services/api_service.dart';
+import '../services/app_logger.dart';
 import '../services/session_storage.dart';
 
 /// Estado de autenticação do app.
@@ -33,6 +34,7 @@ class AuthProvider extends ChangeNotifier {
       if (saved != null && saved.token.isNotEmpty) {
         _session = saved;
         _api.token = saved.token;
+        AppLogger.instance.token = saved.token;
       }
     } catch (e) {
       // Sessão inválida — ignora silenciosamente
@@ -51,6 +53,7 @@ class AuthProvider extends ChangeNotifier {
     try {
       final session = await _api.login(email, password);
       _session = session;
+      AppLogger.instance.token = session.token;
       if (remember) {
         await SessionStorage.saveSession(session);
       }

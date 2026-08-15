@@ -1,13 +1,19 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:isolate';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
+
+import '../config/app_config.dart';
 
 /// Sistema de logs do app — captura erros, falhas e exceções.
 ///
-/// Salva os logs em arquivo no dispositivo para diagnóstico.
-/// Os logs podem ser visualizados na tela de configurações.
+/// Salva os logs:
+/// 1. Em memória (visualizáveis na tela de Logs)
+/// 2. No servidor (POST /api/logs) — acessível remotamente
+/// 3. Em arquivo no dispositivo (opcional)
 class AppLogger {
   static final AppLogger _instance = AppLogger._();
   static AppLogger get instance => _instance;
@@ -17,6 +23,10 @@ class AppLogger {
   final List<String> _logs = [];
   final _controller = StreamController<List<String>>.broadcast();
   Stream<List<String>> get logStream => _controller.stream;
+
+  /// Token JWT para enviar logs ao servidor (setado pelo AuthProvider).
+  String? _token;
+  set token(String? value) => _token = value;
 
   /// Inicializa o capturador de erros globais.
   /// Deve ser chamado no main() antes de runApp().
@@ -80,6 +90,38 @@ class AppLogger {
 
   /// Retorna todos os logs em memória.
   List<String> get logs => List.unmodifiable(_logs);
+
+  /// Envia os logs para o servidor (POST /api/logs).
+  /// Retorna true se enviado com sucesso.
+  Future<bool> uploadToServer() async {
+    if (_logs.isEmpty) return false;
+    if (_token == null || _token!.isEmpty) return false;
+
+    try {
+      final url = Uri.parse('${AppConfig.apiBaseUrl}/api/logs');
+      final resp = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $_token',
+        },
+        body: jsonEncode({
+          'app_version': AppConfig.appVersion,
+          'device_info': {
+            'platform': Platform.operatingSystem,
+            'logs_count': _logs.length,
+          },
+          'logs': _logs,
+        }),
+      ).timeout(const Duration(seconds: 15));
+
+      return resp.statusCode >= 200 && resp.statusCode < 300;
+    } catch (e) {
+      debugPrint('Erro ao enviar logs: $e');
+      return false;
+    }
+  }
 
   /// Salva os logs em arquivo no dispositivo.
   /// Retorna o caminho do arquivo.

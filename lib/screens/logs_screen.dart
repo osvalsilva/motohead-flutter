@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import '../providers/auth_provider.dart';
 import '../services/app_logger.dart';
 
 /// Tela de logs do app — mostra erros, falhas e exceções capturadas.
@@ -25,6 +27,37 @@ class _LogsScreenState extends State<LogsScreen> {
         setState(() => _logs = logs);
       }
     });
+  }
+
+  Future<void> _uploadToServer() async {
+    setState(() => _saving = true);
+    try {
+      // Garante que o token do AuthProvider está no AppLogger
+      final auth = context.read<AuthProvider>();
+      AppLogger.instance.token = auth.token;
+
+      final ok = await AppLogger.instance.uploadToServer();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(ok
+                ? 'Logs enviados ao servidor com sucesso!'
+                : 'Falha ao enviar logs. Verifique sua conexão.'),
+            backgroundColor: ok ? Colors.green : Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+    if (mounted) setState(() => _saving = false);
   }
 
   Future<void> _saveLogs() async {
@@ -76,17 +109,24 @@ class _LogsScreenState extends State<LogsScreen> {
               setState(() => _logs = []);
             },
           ),
+          // Enviar ao servidor
           IconButton(
             icon: _saving
                 ? const SizedBox(
                     width: 20,
                     height: 20,
                     child: CircularProgressIndicator(
-                        strokeWidth: 2, color: Colors.white),
+                        strokeWidth: 2, color: Color(0xFFFF0000)),
                   )
-                : const Icon(Icons.save_alt, color: Colors.white54),
+                : const Icon(Icons.cloud_upload, color: Color(0xFFFF0000)),
+            tooltip: 'Enviar ao servidor',
+            onPressed: _saving ? null : _uploadToServer,
+          ),
+          // Salvar em arquivo local
+          IconButton(
+            icon: const Icon(Icons.save_alt, color: Colors.white54),
             tooltip: 'Salvar em arquivo',
-            onPressed: _saving ? null : _saveLogs,
+            onPressed: _saveLogs,
           ),
         ],
       ),
