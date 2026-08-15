@@ -68,8 +68,6 @@ class TrackingService {
           initialNotificationContent: 'Iniciando tracking...',
           foregroundServiceNotificationId: _notificationId,
           foregroundServiceTypes: [AndroidForegroundType.location],
-          // Tornar o serviço mais resistente a ser morto
-          shouldResumeOnStart: true,
         ),
         iosConfiguration: IosConfiguration(
           autoStart: false,
