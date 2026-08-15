@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -12,10 +13,13 @@ import 'services/tracking_service.dart';
 ///
 /// App mobile "companheiro de estrada" do motociclista (spec §1, §2).
 /// MVP: Início, Viagem (tracking GPS), SOS, Perfil.
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // Inicializa o serviço de tracking em background
-  TrackingService.initialize();
+  // Inicializa o serviço de tracking em background (envolto em try-catch para não crashar o app)
+  // Não usamos await para não bloquear o startup — erros são pegos internamente
+  TrackingService.initialize().catchError((e) {
+    debugPrint('Erro ao inicializar tracking service: $e');
+  });
   runApp(const MotoHeadApp());
 }
 
@@ -62,12 +66,17 @@ class _BootGate extends StatefulWidget {
 }
 
 class _BootGateState extends State<_BootGate> {
+  bool _restoreStarted = false;
+
   @override
   void initState() {
     super.initState();
     // Restaura sessão persistida (manter logado).
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<AuthProvider>().restore();
+      if (!_restoreStarted && mounted) {
+        _restoreStarted = true;
+        context.read<AuthProvider>().restore();
+      }
     });
   }
 

@@ -11,7 +11,7 @@ import '../services/session_storage.dart';
 class AuthProvider extends ChangeNotifier {
   final _api = ApiService.instance;
 
-  bool _loading = false;
+  bool _loading = true; // Começa true para mostrar splash enquanto restaura sessão
   bool _busy = false;
   AuthSession? _session;
   String? _error;
@@ -30,7 +30,7 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
     try {
       final saved = await SessionStorage.loadSession();
-      if (saved != null) {
+      if (saved != null && saved.token.isNotEmpty) {
         _session = saved;
         _api.token = saved.token;
       }

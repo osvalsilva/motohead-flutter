@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:geolocator/geolocator.dart';
@@ -27,35 +28,41 @@ class TrackingService {
   static const _notificationId = 8888;
 
   /// Inicializa o serviço de background e o canal de notificação.
+  /// Seguro para chamar no main() — não lança exceções.
   static Future<void> initialize() async {
-    // Inicializa notificações locais
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const iosSettings = DarwinInitializationSettings();
-    await _notifications.initialize(
-      const InitializationSettings(android: androidSettings, iOS: iosSettings),
-    );
+    try {
+      // Inicializa notificações locais
+      const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+      const iosSettings = DarwinInitializationSettings();
+      await _notifications.initialize(
+        const InitializationSettings(android: androidSettings, iOS: iosSettings),
+      );
 
-    // Cria canal de notificação visível na tela de bloqueio
-    await _createNotificationChannel();
+      // Cria canal de notificação visível na tela de bloqueio
+      await _createNotificationChannel();
 
-    final service = FlutterBackgroundService();
+      final service = FlutterBackgroundService();
 
-    await service.configure(
-      androidConfiguration: AndroidConfiguration(
-        onStart: onStart,
-        autoStart: false,
-        isForegroundMode: true,
-        notificationChannelId: _notificationChannelId,
-        initialNotificationTitle: 'MotoHead — Viagem em andamento',
-        initialNotificationContent: 'Iniciando tracking...',
-        foregroundServiceNotificationId: _notificationId,
-      ),
-      iosConfiguration: IosConfiguration(
-        autoStart: false,
-        onForeground: onStart,
-        onBackground: onIosBackground,
-      ),
-    );
+      await service.configure(
+        androidConfiguration: AndroidConfiguration(
+          onStart: onStart,
+          autoStart: false,
+          isForegroundMode: true,
+          notificationChannelId: _notificationChannelId,
+          initialNotificationTitle: 'MotoHead — Viagem em andamento',
+          initialNotificationContent: 'Iniciando tracking...',
+          foregroundServiceNotificationId: _notificationId,
+        ),
+        iosConfiguration: IosConfiguration(
+          autoStart: false,
+          onForeground: onStart,
+          onBackground: onIosBackground,
+        ),
+      );
+    } catch (e) {
+      // Ignora erros de inicialização — o tracking em background é opcional
+      debugPrint('Erro ao inicializar tracking service: $e');
+    }
   }
 
   /// Cria o canal de notificação com visibilidade pública na tela de bloqueio.
