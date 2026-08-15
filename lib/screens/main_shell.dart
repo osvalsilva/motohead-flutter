@@ -37,23 +37,31 @@ class _MainShellState extends State<MainShell> {
 
   @override
   Widget build(BuildContext context) {
+    // Padding inferior para evitar que conteúdo fique atrás dos botões de navegação do celular
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
     return Scaffold(
       backgroundColor: const Color(0xFF0D0D0D),
       body: _screens[_index],
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _index,
-        onTap: (i) => setState(() => _index = i),
-        backgroundColor: const Color(0xFF121212),
-        selectedItemColor: const Color(0xFFFF0000),
-        unselectedItemColor: Colors.white38,
-        items: const [
-          BottomNavigationBarItem(
-              icon: Icon(Icons.home_outlined), label: 'Início'),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.map_outlined), label: 'Viagem'),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.person_outline), label: 'Perfil'),
-        ],
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Padding(
+          padding: EdgeInsets.only(bottom: bottomPadding > 0 ? bottomPadding : 0),
+          child: BottomNavigationBar(
+            currentIndex: _index,
+            onTap: (i) => setState(() => _index = i),
+            backgroundColor: const Color(0xFF121212),
+            selectedItemColor: const Color(0xFFFF0000),
+            unselectedItemColor: Colors.white38,
+            items: const [
+              BottomNavigationBarItem(
+                  icon: Icon(Icons.home_outlined), label: 'Início'),
+              BottomNavigationBarItem(
+                  icon: Icon(Icons.map_outlined), label: 'Viagem'),
+              BottomNavigationBarItem(
+                  icon: Icon(Icons.person_outline), label: 'Perfil'),
+            ],
+          ),
+        ),
       ),
     );
   }

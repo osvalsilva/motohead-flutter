@@ -38,6 +38,7 @@ class _TripTrackingScreenState extends State<TripTrackingScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF0D0D0D),
       body: SafeArea(
+        bottom: true,
         child: !hasActive
             ? _NoTripView(onStart: () => _showStartDialog(context, trips))
             : Column(
@@ -55,7 +56,7 @@ class _TripTrackingScreenState extends State<TripTrackingScreen> {
                         top: BorderSide(color: Color(0xFFFF0000), width: 1),
                       ),
                     ),
-                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [

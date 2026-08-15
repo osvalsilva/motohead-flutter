@@ -96,7 +96,9 @@ class TripsScreen extends StatelessWidget {
               ),
       ),
       floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: 8),
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).padding.bottom + 8,
+        ),
         child: SosButton(
           onConfirm: () {
             ScaffoldMessenger.of(context).showSnackBar(

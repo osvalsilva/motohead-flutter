@@ -131,6 +131,8 @@ class HomeScreen extends StatelessWidget {
               label: 'SOS — EMERGÊNCIA',
               onConfirm: () => _triggerSos(context),
             ),
+            // Espaço extra para não ficar atrás dos botões de navegação do celular
+            SizedBox(height: MediaQuery.of(context).padding.bottom + 20),
           ],
         ),
       ),

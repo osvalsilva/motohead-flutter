@@ -85,7 +85,9 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                     child: Text(_error!, style: const TextStyle(color: Colors.redAccent)),
                   ),
                 )
-              : Column(
+              : SafeArea(
+                top: false,
+                child: Column(
                   children: [
                     // Mapa com o traçado da rota
                     Expanded(
@@ -100,7 +102,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                           top: BorderSide(color: Color(0xFFFF0000), width: 1),
                         ),
                       ),
-                      padding: const EdgeInsets.all(20),
+                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
@@ -174,6 +176,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                     ),
                   ],
                 ),
+              ),
     );
   }
 

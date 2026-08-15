@@ -194,6 +194,8 @@ class ProfileScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 20),
+          // Espaço extra para não ficar atrás dos botões de navegação do celular
+          SizedBox(height: MediaQuery.of(context).padding.bottom),
         ],
       ),
     );
