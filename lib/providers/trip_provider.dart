@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as _math;
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -17,9 +18,32 @@ import '../config/app_config.dart';
 /// - pause/resume: pausa o stream localmente (sem endpoint ainda — gap do backend).
 /// - finish: para o stream e finaliza no servidor.
 /// - pontos são enviados um-a-um via /api/tracking/trips/{id}/point.
-class TripProvider extends ChangeNotifier {
+class TripProvider extends ChangeNotifier with WidgetsBindingObserver {
   final _api = ApiService.instance;
   final _location = LocationService.instance;
+
+  TripProvider() {
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _activeTrip != null && !_paused) {
+      // App voltou do background — recalcula tempo a partir do start_time
+      if (_tripStartTime != null) {
+        _totalDurationSeconds = DateTime.now().difference(_tripStartTime!).inSeconds;
+      }
+      // Reinicia o ticker se foi parado pelo sistema
+      if (_ticker == null || !_ticker!.isActive) {
+        _startTicker();
+      }
+      // Reinicia o stream de GPS se necessário
+      if (_sub == null) {
+        _startStream();
+      }
+      notifyListeners();
+    }
+  }
 
   bool _loading = false;
   bool _tracking = false;
@@ -70,6 +94,23 @@ class TripProvider extends ChangeNotifier {
       final active = _history.firstWhereOrNull((t) => t.isActive);
       if (active != null) {
         _activeTrip = active;
+        // Restaura contadores do servidor para não mostrar 0.0
+        _currentDistanceKm = active.distanceKm;
+        _totalDurationSeconds = active.durationSeconds;
+        _movingSeconds = active.movingSeconds;
+        // Calcula tempo total a partir do start_time do servidor
+        if (active.startTime != null) {
+          try {
+            final start = DateTime.parse(active.startTime!);
+            _tripStartTime = start;
+            // Atualiza duração com tempo real decorrido
+            final elapsed = DateTime.now().difference(start).inSeconds;
+            if (elapsed > _totalDurationSeconds) {
+              _totalDurationSeconds = elapsed;
+            }
+          } catch (_) {}
+        }
+        notifyListeners();
         // Inicia o stream de GPS para a viagem ativa
         try {
           final ok = await _location.ensurePermission();
@@ -77,10 +118,14 @@ class TripProvider extends ChangeNotifier {
             _startStream();
             _startTicker();
             // Carrega a posição atual para o mapa
-            final pos = await _location.currentPosition();
-            _lastLat = pos.latitude;
-            _lastLng = pos.longitude;
-            notifyListeners();
+            try {
+              final pos = await _location.currentPosition();
+              _lastLat = pos.latitude;
+              _lastLng = pos.longitude;
+              notifyListeners();
+            } catch (_) {
+              // GPS não disponível agora — contadores já foram restaurados
+            }
           }
         } on UnimplementedError catch (e) {
           // Geolocator desabilitado no web, não impede o carregamento
@@ -138,7 +183,16 @@ class TripProvider extends ChangeNotifier {
       _lastLat = pos.latitude;
       _lastLng = pos.longitude;
       _lastPointAt = DateTime.now();
-      _tripStartTime = DateTime.now();
+      // Usa o start_time do servidor se disponível, senão usa agora
+      if (trip.startTime != null) {
+        try {
+          _tripStartTime = DateTime.parse(trip.startTime!);
+        } catch (_) {
+          _tripStartTime = DateTime.now();
+        }
+      } else {
+        _tripStartTime = DateTime.now();
+      }
       _paused = false;
       _routePoints.clear();
       _routePoints.add(LatLng(pos.latitude, pos.longitude));
@@ -199,7 +253,12 @@ class TripProvider extends ChangeNotifier {
     _ticker?.cancel();
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
       if (_activeTrip != null && !_paused) {
-        _totalDurationSeconds++;
+        // Calcula duração a partir do start_time para precisão mesmo após background
+        if (_tripStartTime != null) {
+          _totalDurationSeconds = DateTime.now().difference(_tripStartTime!).inSeconds;
+        } else {
+          _totalDurationSeconds++;
+        }
         notifyListeners();
       }
     });
@@ -388,6 +447,7 @@ class TripProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _sub?.cancel();
     _ticker?.cancel();
     super.dispose();
