@@ -28,6 +28,8 @@ class TrackingService {
 
   /// Inicializa o serviço de background e o canal de notificação.
   /// Seguro para chamar no main() — não lança exceções.
+  /// NÃO solicita permissão aqui — isso é feito separadamente para evitar
+  /// crash quando o Android recria a Activity após conceder permissão.
   static Future<void> initialize() async {
     try {
       // Inicializa notificações locais
@@ -38,16 +40,6 @@ class TrackingService {
         const InitializationSettings(
             android: androidSettings, iOS: iosSettings),
       );
-
-      // Solicita permissão de notificação (Android 13+ exige em tempo de execução)
-      if (Platform.isAndroid) {
-        final androidPlugin = _notifications.resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>();
-        if (androidPlugin != null) {
-          // requestNotificationsPermission() retorna true se concedida
-          await androidPlugin.requestNotificationsPermission();
-        }
-      }
 
       // Cria canal de notificação visível na tela de bloqueio
       const channel = AndroidNotificationChannel(
@@ -84,6 +76,22 @@ class TrackingService {
       );
     } catch (e) {
       debugPrint('Erro ao inicializar tracking service: $e');
+    }
+  }
+
+  /// Solicita permissão de notificação (Android 13+).
+  /// Deve ser chamado cedo no ciclo de vida do app, NÃO durante startTrip().
+  static Future<void> requestNotificationPermission() async {
+    try {
+      if (Platform.isAndroid) {
+        final androidPlugin = _notifications.resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>();
+        if (androidPlugin != null) {
+          await androidPlugin.requestNotificationsPermission();
+        }
+      }
+    } catch (e) {
+      debugPrint('Erro ao solicitar permissão de notificação: $e');
     }
   }
 
@@ -133,6 +141,8 @@ class TrackingService {
   }
 
   /// Inicia o serviço de tracking em background.
+  /// NÃO solicita permissão de notificação aqui — isso é feito em
+  /// requestNotificationPermission() separadamente para evitar crash.
   static Future<void> start({
     required int tripId,
     required String token,
@@ -147,15 +157,6 @@ class TrackingService {
       } catch (_) {}
       if (!isRunning) {
         await initialize();
-      }
-
-      // Solicita permissão de notificação novamente (Android 13+)
-      if (Platform.isAndroid) {
-        final androidPlugin = _notifications.resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>();
-        if (androidPlugin != null) {
-          await androidPlugin.requestNotificationsPermission();
-        }
       }
 
       final prefs = await SharedPreferences.getInstance();

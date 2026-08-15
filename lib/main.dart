@@ -7,6 +7,7 @@ import 'providers/friend_provider.dart';
 import 'screens/login_screen.dart';
 import 'screens/main_shell.dart';
 import 'services/app_logger.dart';
+import 'services/tracking_service.dart';
 
 /// MotoHead — Sua estrada. Nossa história.
 ///
@@ -14,10 +15,27 @@ import 'services/app_logger.dart';
 /// MVP: Início, Viagem (tracking GPS), SOS, Perfil.
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  // Inicializa o capturador de erros globais (crashes, exceções não tratadas)
   AppLogger.init();
   AppLogger.info('APP', 'MotoHead iniciando...');
+
+  // Inicializa o serviço de tracking e solicita permissão de notificação
+  // cedo no ciclo de vida — fazer isso durante startTrip() causa crash
+  // porque o Android recria a Activity ao conceder a permissão.
+  _initTracking();
+
   runApp(const MotoHeadApp());
+}
+
+Future<void> _initTracking() async {
+  try {
+    await TrackingService.initialize();
+    // Solicita permissão de notificação em background (não bloqueia o app)
+    // O dialog do sistema aparece, mas como é no início, não há tracking
+    // em andamento para perder contexto.
+    await TrackingService.requestNotificationPermission();
+  } catch (e) {
+    AppLogger.error('APP', 'Erro ao inicializar tracking: $e');
+  }
 }
 
 class MotoHeadApp extends StatelessWidget {
