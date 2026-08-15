@@ -35,6 +35,7 @@ class TripProvider extends ChangeNotifier with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && _activeTrip != null && !_paused) {
+      AppLogger.log('TRACKING', 'App voltou do background — reiniciando tracking');
       // App voltou do background — recalcula tempo a partir do start_time
       if (_tripStartTime != null) {
         _totalDurationSeconds = DateTime.now().difference(_tripStartTime!).inSeconds;
@@ -43,11 +44,37 @@ class TripProvider extends ChangeNotifier with WidgetsBindingObserver {
       if (_ticker == null || !_ticker!.isActive) {
         _startTicker();
       }
-      // Reinicia o stream de GPS se necessário
-      if (_sub == null) {
-        _startStream();
+      // Sempre reinicia o stream de GPS — o Android pode ter pausado
+      // mesmo que a subscription ainda exista (não recebe eventos)
+      _sub?.cancel();
+      _sub = null;
+      _startStream();
+      // Sincroniza estatísticas com o servidor (o background service
+      // pode ter gravado pontos enquanto o app estava em background)
+      _syncStatsFromServer();
+      notifyListeners();
+    }
+  }
+
+  /// Sincroniza distância e duração com o servidor após voltar do background.
+  Future<void> _syncStatsFromServer() async {
+    if (_activeTrip == null) return;
+    try {
+      final data = await _api.getTripDetails(_activeTrip!.id, pointsLimit: 1);
+      final tripData = data['trip'] ?? data;
+      final dist = tripData['distance_km'];
+      final dur = tripData['duration_seconds'];
+      if (dist != null) {
+        _currentDistanceKm = (dist is num) ? dist.toDouble() : double.tryParse(dist.toString()) ?? _currentDistanceKm;
+      }
+      if (dur != null) {
+        final d = (dur is num) ? dur.toInt() : int.tryParse(dur.toString()) ?? _totalDurationSeconds;
+        if (d > _totalDurationSeconds) _totalDurationSeconds = d;
       }
       notifyListeners();
+      AppLogger.log('TRACKING', 'Sincronizado do servidor: dist=${_currentDistanceKm.toStringAsFixed(2)}km, dur=${_totalDurationSeconds}s');
+    } catch (e) {
+      AppLogger.error('TRACKING', 'Erro ao sincronizar do servidor: $e');
     }
   }
 

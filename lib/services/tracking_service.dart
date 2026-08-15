@@ -250,10 +250,10 @@ class TrackingService {
       );
     });
 
-    // Stream de posições GPS
+    // Stream de posições GPS — sem distanceFilter, grava todos os pontos
     const locationSettings = LocationSettings(
-      accuracy: LocationAccuracy.high,
-      distanceFilter: 5,
+      accuracy: LocationAccuracy.bestForNavigation,
+      distanceFilter: 0,
     );
 
     final positionStream = Geolocator.getPositionStream(
@@ -266,27 +266,11 @@ class TrackingService {
 
       currentSpeedKmh = position.speed * 3.6;
 
-      // Regras inteligentes para contagem de pontos
-      bool shouldRecord = true;
+      // Grava todos os pontos — sem filtros de distância/speed
       if (lastLat != 0.0 && lastLng != 0.0) {
         final meters =
             _haversine(lastLat, lastLng, position.latitude, position.longitude);
-
-        // Parado — não conta
-        if (currentSpeedKmh < 2) {
-          shouldRecord = false;
-        } else if (currentSpeedKmh < 30) {
-          // Baixa velocidade: a cada 10m
-          shouldRecord = meters >= 10;
-        } else if (currentSpeedKmh < 80) {
-          // Média velocidade: a cada 50m
-          shouldRecord = meters >= 50;
-        } else {
-          // Alta velocidade: a cada 150m
-          shouldRecord = meters >= 150;
-        }
-
-        if (shouldRecord && meters > 0) {
+        if (meters > 0) {
           totalDistanceKm += meters / 1000.0;
         }
       }
@@ -302,14 +286,12 @@ class TrackingService {
         speedKmh: currentSpeedKmh,
       );
 
-      // Envia o ponto apenas se passou nas regras
-      if (shouldRecord) {
-        try {
-          final url = Uri.parse('$baseUrl/api/tracking/trips/$tripId/point');
-          await _sendPoint(url, token, position);
-        } catch (e) {
-          // Erro de rede — continua tentando no próximo ponto
-        }
+      // Envia todos os pontos ao servidor
+      try {
+        final url = Uri.parse('$baseUrl/api/tracking/trips/$tripId/point');
+        await _sendPoint(url, token, position);
+      } catch (e) {
+        // Erro de rede — continua tentando no próximo ponto
       }
     });
 
