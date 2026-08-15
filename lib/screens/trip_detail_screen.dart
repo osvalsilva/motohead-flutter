@@ -300,9 +300,10 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     setState(() => _importing = true);
     try {
       // Seleciona arquivo GPX do dispositivo
+      // FileType.any é mais compatível no Android — alguns dispositivos
+      // não suportam FileType.custom para extensões como .gpx
       final result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['gpx'],
+        type: FileType.any,
         withData: true,
       );
 
@@ -312,6 +313,21 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
       }
 
       final file = result.files.first;
+
+      // Valida extensão manualmente
+      final fileName = file.name.toLowerCase();
+      if (!fileName.endsWith('.gpx') && !fileName.endsWith('.xml')) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Por favor, selecione um arquivo .gpx'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          setState(() => _importing = false);
+        }
+        return;
+      }
       String gpxContent;
 
       if (file.bytes != null) {

@@ -188,10 +188,10 @@ class GpxExporter {
 
   /// Sanitiza o nome do arquivo (remove caracteres inválidos).
   String _sanitizeFileName(String name) {
-    return name
+    final sanitized = name
         .replaceAll(RegExp(r'[^\w\s-]'), '')
         .replaceAll(RegExp(r'\s+'), '_')
-        .toLowerCase()
-        .substring(0, name.length > 50 ? 50 : name.length);
+        .toLowerCase();
+    return sanitized.length > 50 ? sanitized.substring(0, 50) : sanitized;
   }
 }
