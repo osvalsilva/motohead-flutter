@@ -39,6 +39,16 @@ class TrackingService {
             android: androidSettings, iOS: iosSettings),
       );
 
+      // Solicita permissão de notificação (Android 13+ exige em tempo de execução)
+      if (Platform.isAndroid) {
+        final androidPlugin = _notifications.resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>();
+        if (androidPlugin != null) {
+          // requestNotificationsPermission() retorna true se concedida
+          await androidPlugin.requestNotificationsPermission();
+        }
+      }
+
       // Cria canal de notificação visível na tela de bloqueio
       const channel = AndroidNotificationChannel(
         _notificationChannelId,
@@ -137,6 +147,15 @@ class TrackingService {
       } catch (_) {}
       if (!isRunning) {
         await initialize();
+      }
+
+      // Solicita permissão de notificação novamente (Android 13+)
+      if (Platform.isAndroid) {
+        final androidPlugin = _notifications.resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>();
+        if (androidPlugin != null) {
+          await androidPlugin.requestNotificationsPermission();
+        }
       }
 
       final prefs = await SharedPreferences.getInstance();
