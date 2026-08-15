@@ -272,9 +272,10 @@ class TripProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   /// Regras para gravação de pontos:
   /// 1. Primeiro ponto: sempre grava
-  /// 2. Se moveu >= 5m: grava (mesmo parado — captura pequenas variações)
-  /// 3. Se speed >= 2 km/h e moveu >= 3m: grava
-  /// 4. Se parado (speed < 2 E distância < 3m): não grava
+  /// 2. Se moveu >= 3m: grava (mesmo com speed=0 — Android frequentemente
+  ///    reporta speed=0.0 mesmo em movimento)
+  /// 3. Se speed >= 2 km/h e moveu >= 2m: grava
+  /// 4. Se parado (speed < 2 E distância < 2m): não grava
   bool _shouldRecordPoint(Position pos) {
     // Sem último ponto gravado — registra o primeiro
     if (_lastSentLat == null || _lastSentLng == null) {
@@ -290,13 +291,14 @@ class TripProvider extends ChangeNotifier with WidgetsBindingObserver {
     AppLogger.log('TRACKING', 'Distância desde último gravado: ${meters.toStringAsFixed(1)}m, speed: ${speedKmh.toStringAsFixed(1)}km/h');
 
     // Parado de verdade (speed baixo E não se moveu quase nada) — não conta
-    if (speedKmh < 2 && meters < 3) return false;
+    if (speedKmh < 2 && meters < 2) return false;
 
-    // Se se moveu >= 5m, grava independente da speed
-    if (meters >= 5) return true;
+    // Se se moveu >= 3m, grava independente da speed
+    // (Android frequentemente reporta speed=0.0 mesmo em movimento)
+    if (meters >= 3) return true;
 
-    // Se tem speed >= 2 e se moveu pelo menos 3m, grava
-    if (speedKmh >= 2 && meters >= 3) return true;
+    // Se tem speed >= 2 e se moveu pelo menos 2m, grava
+    if (speedKmh >= 2 && meters >= 2) return true;
 
     return false;
   }
