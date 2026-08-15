@@ -156,6 +156,13 @@ class ApiService {
     return list.map((e) => Trip.fromJson(e as Map<String, dynamic>)).toList();
   }
 
+  /// GET /api/clubs — Lista clubes com coordenadas para o mapa
+  Future<List<Map<String, dynamic>>> listClubs({int page = 1}) async {
+    final data = await _get('/api/clubs', query: {'page': page.toString()});
+    final list = data['clubs'] as List? ?? [];
+    return list.cast<Map<String, dynamic>>();
+  }
+
   /// POST /api/tracking/trips/start
   Future<Trip> startTrip({
     required String name,

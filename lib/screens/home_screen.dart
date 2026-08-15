@@ -5,6 +5,7 @@ import '../config/app_config.dart';
 import '../providers/auth_provider.dart';
 import '../providers/trip_provider.dart';
 import '../widgets/sos_button.dart';
+import '../widgets/clubs_map.dart';
 import 'trip_tracking_screen.dart';
 
 /// Tela Inicial (spec §4) — painel resumido do motociclista.
@@ -108,6 +109,12 @@ class HomeScreen extends StatelessWidget {
               _startTripCard(context),
               const SizedBox(height: 24),
             ],
+
+            // Clubes no mapa
+            _sectionTitle('Clubes pelo Brasil'),
+            const SizedBox(height: 8),
+            const ClubsMap(),
+            const SizedBox(height: 24),
 
             // Eventos (placeholder)
             _sectionTitle('Eventos próximos'),
