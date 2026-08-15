@@ -250,71 +250,67 @@ class TripProvider extends ChangeNotifier with WidgetsBindingObserver {
     _sub?.cancel();
     _tracking = true;
     notifyListeners();
+    debugPrint('[TRACKING] Iniciando stream de GPS...');
 
+    // SEM distanceFilter — recebe todas as posições do GPS
     _sub = _location.positionStream(
-      distanceFilterMeters: 5, // filtro base — o _shouldRecordPoint decide se envia
+      distanceFilterMeters: 0,
     ).listen(
       (pos) async {
         if (_paused || _activeTrip == null) return;
-        // Rejeita coordenadas inválidas (0,0 = meio do oceano)
-        if (pos.latitude == 0.0 && pos.longitude == 0.0) return;
+        debugPrint('[TRACKING] Posição recebida: ${pos.latitude.toStringAsFixed(5)}, ${pos.longitude.toStringAsFixed(5)} speed=${(pos.speed * 3.6).toStringAsFixed(1)}km/h acc=${pos.accuracy.toStringAsFixed(0)}m');
+
         // Sempre atualiza posição atual para o mapa
         _lastLat = pos.latitude;
         _lastLng = pos.longitude;
         _currentSpeed = (pos.speed * 3.6); // m/s -> km/h
         notifyListeners();
-        // Aplica regras inteligentes para decidir se grava o ponto
+
+        // Aplica regras para decidir se grava o ponto
         if (_shouldRecordPoint(pos)) {
+          debugPrint('[TRACKING] Ponto APROVADO para gravação');
           await _sendPoint(pos);
+        } else {
+          debugPrint('[TRACKING] Ponto rejeitado pelas regras de distância/speed');
         }
       },
       onError: (e) {
+        debugPrint('[TRACKING] Erro no stream de GPS: $e');
         _error = 'Erro de GPS: $e';
         notifyListeners();
       },
     );
   }
 
-  /// Regras inteligentes para contagem de pontos:
-  /// - Parado (velocidade 0 E sem movimento): não conta ponto
-  /// - Baixa velocidade (0-30 km/h): conta pontos a cada 10m (absorve curvas)
-  /// - Média velocidade (30-80 km/h): conta pontos a cada 50m
-  /// - Alta velocidade (> 80 km/h): conta pontos a cada 150m (linha reta)
-  ///
-  /// Importante: pos.speed pode ser 0 em alguns dispositivos mesmo em movimento.
-  /// Por isso, se a distância percorrida for significativa (> 15m), grava mesmo
-  /// com speed=0 — o movimento real é detectado pela distância.
+  /// Regras simples para gravação de pontos:
+  /// 1. Primeiro ponto: sempre grava
+  /// 2. Pontos seguintes: grava se se moveu > 10m da última posição gravada
+  /// 3. Se parado (speed < 2 E distância < 5m): não grava
   bool _shouldRecordPoint(Position pos) {
-    final speedKmh = pos.speed * 3.6;
-
     // Sem último ponto gravado — registra o primeiro
-    if (_lastSentLat == null || _lastSentLng == null) return true;
+    if (_lastSentLat == null || _lastSentLng == null) {
+      debugPrint('[TRACKING] Primeiro ponto — sempre grava');
+      return true;
+    }
 
     final meters = _calculateDistance(
       _lastSentLat!, _lastSentLng!, pos.latitude, pos.longitude,
     );
 
-    // Se speed=0 mas se moveu mais de 15m, o dispositivo está em movimento
-    // (muitos Androids não reportam speed corretamente)
-    final effectiveSpeed = (speedKmh < 2 && meters > 15) ? 10.0 : speedKmh;
+    final speedKmh = pos.speed * 3.6;
+    debugPrint('[TRACKING] Distância desde último gravado: ${meters.toStringAsFixed(1)}m, speed: ${speedKmh.toStringAsFixed(1)}km/h');
 
-    // Parado de verdade (speed baixo E não se moveu) — não conta
-    if (effectiveSpeed < 2 && meters < 5) return false;
+    // Parado de verdade — não conta
+    if (speedKmh < 2 && meters < 5) return false;
 
-    // Distância mínima baseada na velocidade efetiva
-    double minDistance;
-    if (effectiveSpeed < 30) {
-      // Baixa velocidade: mais pontos para capturar curvas e variações
-      minDistance = 10;
-    } else if (effectiveSpeed < 80) {
-      // Média velocidade: pontos moderados
-      minDistance = 50;
-    } else {
-      // Alta velocidade: menos pontos (linha reta na estrada)
-      minDistance = 150;
-    }
+    // Se speed=0 mas se moveu > 10m, está em movimento (Android não reporta speed)
+    // Grava se se moveu pelo menos 10m
+    if (meters >= 10) return true;
 
-    return meters >= minDistance;
+    // Se tem speed > 2 e se moveu pelo menos 5m, grava
+    if (speedKmh >= 2 && meters >= 5) return true;
+
+    return false;
   }
 
   void _startTicker() {
@@ -340,7 +336,7 @@ class TripProvider extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> _sendPoint(Position pos) async {
     if (_activeTrip == null) return;
     try {
-      // Calcula distância desde o último ponto GRAVADO (não desde o último recebido)
+      // Calcula distância desde o último ponto GRAVADO
       if (_lastSentLat != null && _lastSentLng != null) {
         final meters = _calculateDistance(
           _lastSentLat!, _lastSentLng!, pos.latitude, pos.longitude,
@@ -359,6 +355,7 @@ class TripProvider extends ChangeNotifier with WidgetsBindingObserver {
       _routePoints.add(LatLng(pos.latitude, pos.longitude));
       notifyListeners();
 
+      debugPrint('[TRACKING] Enviando ponto à API: trip=${_activeTrip!.id} lat=${pos.latitude} lng=${pos.longitude}');
       await _api.addPoint(
         _activeTrip!.id,
         lat: pos.latitude,
@@ -369,10 +366,13 @@ class TripProvider extends ChangeNotifier with WidgetsBindingObserver {
         accuracy: pos.accuracy,
         recordedAt: DateTime.now().toIso8601String(),
       );
+      debugPrint('[TRACKING] Ponto enviado com sucesso!');
     } on ApiException catch (e) {
-      // Não aborta a viagem por erro de rede (spec §27: tracking continua offline).
+      debugPrint('[TRACKING] Erro ao enviar ponto: ${e.message}');
       _error = 'Falha ao enviar ponto: ${e.message}';
       notifyListeners();
+    } catch (e) {
+      debugPrint('[TRACKING] Erro inesperado: $e');
     }
   }
 

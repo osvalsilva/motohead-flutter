@@ -2,20 +2,13 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 
-/// Serviço de localização GPS para o tracking de viagem (spec §6).
+/// Serviço de localização GPS para o tracking de viagem.
 ///
-/// Usa GPS de alta precisão (bestForNavigation) para forçar satélite.
-/// Filtra coordenadas inválidas (0,0) e saltos irreais (Wi-Fi/IP).
+/// Usa GPS de alta precisão. Filtra apenas coordenadas 0,0.
+/// As regras de gravação de pontos ficam no TripProvider.
 class LocationService {
   LocationService._();
   static final LocationService instance = LocationService._();
-
-  /// Distância máxima aceitável entre pontos consecutivos (km).
-  /// Saltos maiores que isso indicam salto de Wi-Fi/IP para GPS real.
-  static const double _maxJumpKm = 50;
-
-  /// Última posição válida conhecida — usada para detectar saltos irreais.
-  Position? _lastValidPosition;
 
   /// Verifica se as coordenadas são válidas.
   bool _isValidPosition(double lat, double lng) {
@@ -25,24 +18,11 @@ class LocationService {
     return true;
   }
 
-  /// Verifica se a posição é um salto irreal (Wi-Fi/IP → GPS real).
-  /// Se a posição saltou mais de _maxJumpKm do último ponto, é suspeita.
-  bool _isRealisticJump(Position pos) {
-    if (_lastValidPosition == null) return true;
-    final distance = Geolocator.distanceBetween(
-      _lastValidPosition!.latitude,
-      _lastValidPosition!.longitude,
-      pos.latitude,
-      pos.longitude,
-    );
-    // Salto > 50km em poucos segundos é irreal — provavelmente Wi-Fi/IP
-    return distance < (_maxJumpKm * 1000);
-  }
-
   /// Garante que as permissões de localização foram concedidas.
   Future<bool> ensurePermission() async {
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
+      debugPrint('[GPS] Serviço de localização desativado');
       return false;
     }
 
@@ -50,80 +30,79 @@ class LocationService {
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) {
+        debugPrint('[GPS] Permissão negada');
         return false;
       }
     }
 
     if (permission == LocationPermission.deniedForever) {
+      debugPrint('[GPS] Permissão negada permanentemente');
       return false;
     }
 
+    debugPrint('[GPS] Permissão concedida');
     return true;
   }
 
-  /// Última posição conhecida (rápido, sem aguardar fix de GPS).
+  /// Última posição conhecida.
   Future<Position?> lastKnownPosition() async {
     return await Geolocator.getLastKnownPosition();
   }
 
   /// Posição atual com GPS de alta precisão.
-  /// Rejeita coordenadas inválidas (0,0) e tenta obter fix de satélite.
   Future<Position> currentPosition({
     String accuracy = 'high',
   }) async {
-    // bestForNavigation força uso de GPS por satélite
     final LocationAccuracy locationAccuracy = accuracy == 'high'
         ? LocationAccuracy.bestForNavigation
         : LocationAccuracy.high;
 
-    // Tenta até 3 vezes obter uma posição válida
     for (int attempt = 0; attempt < 3; attempt++) {
       try {
+        debugPrint('[GPS] Tentativa ${attempt + 1} de obter posição...');
         final pos = await Geolocator.getCurrentPosition(
           desiredAccuracy: locationAccuracy,
           timeLimit: const Duration(seconds: 15),
         );
+        debugPrint('[GPS] Posição obtida: ${pos.latitude}, ${pos.longitude} (acc: ${pos.accuracy}m, speed: ${pos.speed}m/s)');
 
         if (_isValidPosition(pos.latitude, pos.longitude)) {
-          _lastValidPosition = pos;
           return pos;
         }
-        // Coordenadas inválidas (0,0) — espera e tenta novamente
+        debugPrint('[GPS] Coordenadas inválidas (0,0) — tentando novamente');
         await Future.delayed(const Duration(seconds: 2));
       } catch (e) {
-        // Timeout ou erro — tenta novamente
+        debugPrint('[GPS] Erro: $e');
         await Future.delayed(const Duration(seconds: 2));
       }
     }
 
     // Tenta última posição conhecida
     final lastKnown = await Geolocator.getLastKnownPosition();
-    if (lastKnown != null &&
-        _isValidPosition(lastKnown.latitude, lastKnown.longitude)) {
-      _lastValidPosition = lastKnown;
+    if (lastKnown != null && _isValidPosition(lastKnown.latitude, lastKnown.longitude)) {
+      debugPrint('[GPS] Usando última posição conhecida: ${lastKnown.latitude}, ${lastKnown.longitude}');
       return lastKnown;
     }
 
     throw Exception(
-      'Não foi possível obter sua localização. Verifique se o GPS está ativado '
-      'e tente novamente ao ar livre.',
+      'Não foi possível obter sua localização. Verifique se o GPS está ativado.',
     );
   }
 
-  /// Stream de posições para tracking contínuo (spec §6).
+  /// Stream de posições para tracking contínuo.
   ///
-  /// Usa GPS de alta precisão (bestForNavigation) para forçar satélite.
-  /// Filtra coordenadas inválidas (0,0) e saltos irreais (Wi-Fi/IP).
-  ///
-  /// NÃO rejeita por precisão — o TripProvider já tem regras inteligentes
-  /// de distância/speed para decidir se grava o ponto.
+  /// SEM distanceFilter — emite todas as posições do GPS.
+  /// O TripProvider decide quais pontos gravar baseado em distância/speed.
+  /// Filtra apenas coordenadas 0,0 (meio do oceano).
   Stream<Position> positionStream({
-    double distanceFilterMeters = 10,
+    double distanceFilterMeters = 0,
     String accuracy = 'high',
   }) {
     final LocationAccuracy locationAccuracy = accuracy == 'high'
         ? LocationAccuracy.bestForNavigation
         : LocationAccuracy.high;
+
+    debugPrint('[GPS] Iniciando stream (accuracy: $locationAccuracy, distanceFilter: $distanceFilterMeters m)');
 
     return Geolocator.getPositionStream(
       locationSettings: LocationSettings(
@@ -131,13 +110,12 @@ class LocationService {
         distanceFilter: distanceFilterMeters.toInt(),
       ),
     ).where((pos) {
-      // Filtra 0,0 (meio do oceano)
-      if (!_isValidPosition(pos.latitude, pos.longitude)) return false;
-      // Filtra saltos irreais (Wi-Fi/IP → GPS real)
-      if (!_isRealisticJump(pos)) return false;
-      // Atualiza última posição válida
-      _lastValidPosition = pos;
-      return true;
+      // Filtra apenas 0,0 — TODO o resto passa para o TripProvider decidir
+      final valid = _isValidPosition(pos.latitude, pos.longitude);
+      if (!valid) {
+        debugPrint('[GPS Stream] Posição rejeitada: 0,0');
+      }
+      return valid;
     });
   }
 }
