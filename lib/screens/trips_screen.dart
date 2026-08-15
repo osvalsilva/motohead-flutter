@@ -323,31 +323,7 @@ class _TripTile extends StatelessWidget {
         child: const Icon(Icons.delete, color: Colors.white, size: 28),
       ),
       confirmDismiss: (direction) async {
-        return await showDialog<bool>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            backgroundColor: const Color(0xFF1A1A1A),
-            title: const Text('Apagar viagem?',
-                style: TextStyle(color: Colors.white)),
-            content: Text(
-              'Tem certeza que deseja apagar "${trip.title ?? 'Viagem sem nome'}"? '
-              'Esta ação não pode ser desfeita.',
-              style: const TextStyle(color: Colors.white70),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('CANCELAR',
-                    style: TextStyle(color: Colors.white54)),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                style: TextButton.styleFrom(foregroundColor: Colors.red),
-                child: const Text('APAGAR'),
-              ),
-            ],
-          ),
-        );
+        return await _confirmDelete(context);
       },
       onDismissed: (direction) async {
         final trips = context.read<TripProvider>();
@@ -422,6 +398,16 @@ class _TripTile extends StatelessWidget {
                     ),
                   ),
                   _statusChip(trip.status),
+                  // Botão visível de apagar
+                  if (canDelete)
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline,
+                          color: Colors.white38, size: 22),
+                      onPressed: () => _deleteWithConfirm(context),
+                      padding: const EdgeInsets.only(left: 8),
+                      constraints: const BoxConstraints(),
+                      tooltip: 'Apagar viagem',
+                    ),
                 ],
               ),
             ),
@@ -429,6 +415,59 @@ class _TripTile extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<bool> _confirmDelete(BuildContext context) async {
+    return await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A1A),
+        title: const Text('Apagar viagem?',
+            style: TextStyle(color: Colors.white)),
+        content: Text(
+          'Tem certeza que deseja apagar "${trip.title ?? 'Viagem sem nome'}"? '
+          'Esta ação não pode ser desfeita.',
+          style: const TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('CANCELAR',
+                style: TextStyle(color: Colors.white54)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('APAGAR'),
+          ),
+        ],
+      ),
+    ) ?? false;
+  }
+
+  Future<void> _deleteWithConfirm(BuildContext context) async {
+    final confirmed = await _confirmDelete(context);
+    if (!confirmed || !context.mounted) return;
+    final trips = context.read<TripProvider>();
+    final ok = await trips.deleteTrip(trip.id);
+    if (context.mounted) {
+      if (ok) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Viagem apagada com sucesso'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(trips.error ?? 'Falha ao apagar viagem'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   String _formatDate(String s) {
