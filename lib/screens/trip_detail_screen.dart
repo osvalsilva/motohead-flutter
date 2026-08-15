@@ -4,6 +4,7 @@ import 'package:latlong2/latlong.dart';
 
 import '../models/trip.dart';
 import '../services/api_service.dart';
+import '../services/gpx_exporter.dart';
 
 /// Tela de detalhes de uma viagem finalizada.
 ///
@@ -20,7 +21,9 @@ class TripDetailScreen extends StatefulWidget {
 
 class _TripDetailScreenState extends State<TripDetailScreen> {
   bool _loading = true;
+  bool _exporting = false;
   List<LatLng> _routePoints = [];
+  List<Map<String, dynamic>> _rawPoints = [];
   String? _error;
   Trip? _updatedTrip;
 
@@ -45,6 +48,8 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
               : double.tryParse('${p['lng']}') ?? 0.0;
           return LatLng(lat, lng);
         }).where((p) => p.latitude != 0.0 || p.longitude != 0.0).toList();
+        // Guarda pontos brutos para exportação GPX
+        _rawPoints = points.cast<Map<String, dynamic>>();
         // Atualiza a trip com os dados completos
         _updatedTrip = Trip.fromJson(data);
         _loading = false;
@@ -75,6 +80,21 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
+        actions: [
+          // Botão de exportar GPX
+          IconButton(
+            icon: _exporting
+                ? const SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Color(0xFFFF0000)),
+                  )
+                : const Icon(Icons.download, color: Color(0xFFFF0000)),
+            tooltip: 'Exportar GPX (Garmin/Strava)',
+            onPressed: _exporting ? null : _exportGpx,
+          ),
+        ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator(color: Color(0xFFFF0000)))
@@ -218,6 +238,23 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     final h = seconds ~/ 3600;
     final m = (seconds % 3600) ~/ 60;
     return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> _exportGpx() async {
+    setState(() => _exporting = true);
+    try {
+      await GpxExporter.instance.exportAndShare(trip);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao exportar: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+    if (mounted) setState(() => _exporting = false);
   }
 }
 
