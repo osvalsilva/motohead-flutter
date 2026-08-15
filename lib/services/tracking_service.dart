@@ -67,6 +67,9 @@ class TrackingService {
           initialNotificationTitle: 'MotoHead — Viagem em andamento',
           initialNotificationContent: 'Iniciando tracking...',
           foregroundServiceNotificationId: _notificationId,
+          foregroundServiceTypes: [AndroidForegroundType.location],
+          // Tornar o serviço mais resistente a ser morto
+          shouldResumeOnStart: true,
         ),
         iosConfiguration: IosConfiguration(
           autoStart: false,
@@ -220,6 +223,8 @@ class TrackingService {
   static Future<void> onStart(ServiceInstance service) async {
     DartPluginRegistrant.ensureInitialized();
 
+    debugPrint('BackgroundService: onStart chamado - serviço iniciando');
+
     final prefs = await SharedPreferences.getInstance();
     final tripId = prefs.getInt(_kActiveTripId);
     final token = prefs.getString(_kApiToken);
@@ -227,9 +232,12 @@ class TrackingService {
     final startTimeMs = prefs.getInt(_kTripStartTime);
 
     if (tripId == null || token == null || baseUrl == null) {
+      debugPrint('BackgroundService: Dados incompletos, parando serviço');
       service.stopSelf();
       return;
     }
+
+    debugPrint('BackgroundService: tripId=$tripId, iniciando tracking GPS');
 
     // Estado local do tracking
     double totalDistanceKm = 0;
@@ -264,6 +272,9 @@ class TrackingService {
     final subscription = positionStream.listen((Position position) async {
       // Rejeita coordenadas inválidas (0,0 = meio do oceano)
       if (position.latitude == 0.0 && position.longitude == 0.0) return;
+
+      // Log para debug - verificar se background service está capturando
+      debugPrint('BackgroundService: Ponto capturado - ${position.latitude}, ${position.longitude}');
 
       currentSpeedKmh = position.speed * 3.6;
 
