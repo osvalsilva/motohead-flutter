@@ -206,6 +206,8 @@ class TripProvider extends ChangeNotifier {
 
   Future<void> _sendPoint(Position pos) async {
     if (_activeTrip == null) return;
+    // Rejeita coordenadas inválidas (0,0 = meio do oceano)
+    if (pos.latitude == 0.0 && pos.longitude == 0.0) return;
     try {
       // Atualiza estatísticas locais.
       if (_lastLat != null && _lastLng != null) {

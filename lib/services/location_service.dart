@@ -10,6 +10,16 @@ class LocationService {
   LocationService._();
   static final LocationService instance = LocationService._();
 
+  /// Verifica se as coordenadas são válidas (não são 0,0 — meio do oceano).
+  bool _isValidPosition(double lat, double lng) {
+    // Rejeita 0,0 (Null Island — meio do oceano Atlântico)
+    if (lat == 0.0 && lng == 0.0) return false;
+    // Rejeita coordenadas fora dos limites válidos
+    if (lat < -90 || lat > 90) return false;
+    if (lng < -180 || lng > 180) return false;
+    return true;
+  }
+
   /// Garante que as permissões de localização foram concedidas.
   /// Solicita de forma contextual conforme spec §25.
   ///
@@ -41,42 +51,32 @@ class LocationService {
   }
 
   /// Posição atual com alta precisão.
-  /// Se estiver no web e o GPS não estiver disponível, retorna uma posição simulada.
+  /// Rejeita coordenadas inválidas (0,0 = meio do oceano).
   Future<Position> currentPosition({
     String accuracy = 'high',
   }) async {
-    try {
-      LocationAccuracy locationAccuracy = accuracy == 'high'
-          ? LocationAccuracy.high
-          : LocationAccuracy.medium;
-      
-      return await Geolocator.getCurrentPosition(
-        desiredAccuracy: locationAccuracy,
-      );
-    } catch (e) {
-      // Se falhar no web, retorna uma posição simulada
-      if (kIsWeb) {
-        return Position(
-          latitude: -22.9769,
-          longitude: -49.8686,
-          timestamp: DateTime.now(),
-          accuracy: 100,
-          altitude: 0,
-          altitudeAccuracy: 0,
-          heading: 0,
-          headingAccuracy: 0,
-          speed: 0,
-          speedAccuracy: 0,
-        );
-      }
-      rethrow;
+    LocationAccuracy locationAccuracy = accuracy == 'high'
+        ? LocationAccuracy.high
+        : LocationAccuracy.medium;
+
+    final pos = await Geolocator.getCurrentPosition(
+      desiredAccuracy: locationAccuracy,
+    );
+
+    // Valida as coordenadas
+    if (!_isValidPosition(pos.latitude, pos.longitude)) {
+      throw Exception('GPS retornou coordenadas inválidas (0,0). Verifique se o GPS está ativado.');
     }
+
+    return pos;
   }
 
   /// Stream de posições para tracking contínuo (spec §6).
   ///
   /// [distanceFilter] em metros — só emite quando o usuário se move pelo menos
   /// essa distância. Reduz consumo de bateria e volume de dados.
+  ///
+  /// Filtra coordenadas inválidas (0,0 = meio do oceano).
   Stream<Position> positionStream({
     double distanceFilterMeters = 10,
     String accuracy = 'high',
@@ -90,6 +90,6 @@ class LocationService {
         accuracy: locationAccuracy,
         distanceFilter: distanceFilterMeters.toInt(),
       ),
-    );
+    ).where((pos) => _isValidPosition(pos.latitude, pos.longitude));
   }
 }
