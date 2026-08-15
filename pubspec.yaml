@@ -69,6 +69,9 @@ dependencies:
   # Compartilhar arquivos (exportar GPX para outros apps)
   share_plus: ^10.1.2
 
+  # Selecionar arquivos do dispositivo (importar GPX)
+  file_picker: ^8.1.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

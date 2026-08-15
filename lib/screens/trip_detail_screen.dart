@@ -1,9 +1,12 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:file_picker/file_picker.dart';
 
 import '../models/trip.dart';
 import '../services/api_service.dart';
+import '../services/app_logger.dart';
 import '../services/gpx_exporter.dart';
 
 /// Tela de detalhes de uma viagem finalizada.
@@ -22,6 +25,7 @@ class TripDetailScreen extends StatefulWidget {
 class _TripDetailScreenState extends State<TripDetailScreen> {
   bool _loading = true;
   bool _exporting = false;
+  bool _importing = false;
   List<LatLng> _routePoints = [];
   List<Map<String, dynamic>> _rawPoints = [];
   String? _error;
@@ -113,6 +117,39 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                     Expanded(
                       flex: 3,
                       child: _RouteMap(points: _routePoints, trip: trip),
+                    ),
+                    // Botão "Atualizar mapa" — carrega GPX do dispositivo
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: _importing ? null : _importGpx,
+                          icon: _importing
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2, color: Color(0xFFFF0000)),
+                                )
+                              : const Icon(Icons.upload_file, color: Color(0xFFFF0000)),
+                          label: Text(
+                            _importing ? 'Atualizando...' : 'Atualizar mapa via GPX',
+                            style: const TextStyle(
+                              color: Color(0xFFFF0000),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: Color(0xFFFF0000)),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
                     // Painel com dados da viagem
                     Container(
@@ -255,6 +292,80 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
       }
     }
     if (mounted) setState(() => _exporting = false);
+  }
+
+  /// Abre o seletor de arquivos para escolher um GPX do dispositivo,
+  /// envia ao servidor para atualizar os pontos da viagem e recarrega o mapa.
+  Future<void> _importGpx() async {
+    setState(() => _importing = true);
+    try {
+      // Seleciona arquivo GPX do dispositivo
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['gpx'],
+        withData: true,
+      );
+
+      if (result == null || result.files.isEmpty) {
+        if (mounted) setState(() => _importing = false);
+        return;
+      }
+
+      final file = result.files.first;
+      String gpxContent;
+
+      if (file.bytes != null) {
+        gpxContent = String.fromCharCodes(file.bytes!);
+      } else if (file.path != null) {
+        gpxContent = await _readFile(file.path!);
+      } else {
+        throw Exception('Não foi possível ler o arquivo');
+      }
+
+      if (gpxContent.isEmpty) {
+        throw Exception('Arquivo GPX vazio');
+      }
+
+      AppLogger.log('GPX', 'Importando GPX: ${file.name} (${gpxContent.length} bytes)');
+
+      // Envia ao servidor para atualizar a viagem
+      final response = await ApiService.instance.updateTripFromGpx(
+        trip.id,
+        gpxContent,
+      );
+
+      final pointsCount = response['points'] ?? 0;
+      AppLogger.log('GPX', 'Viagem atualizada com $pointsCount pontos');
+
+      // Recarrega os detalhes da viagem
+      await _loadDetails();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Mapa atualizado com $pointsCount pontos do GPX!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      AppLogger.error('GPX', 'Erro ao importar: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao importar GPX: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+    if (mounted) setState(() => _importing = false);
+  }
+
+  /// Lê um arquivo do caminho especificado.
+  Future<String> _readFile(String path) async {
+    final file = File(path);
+    return await file.readAsString();
   }
 }
 

@@ -230,6 +230,13 @@ class ApiService {
     await _post('/api/tracking/trips/$tripId/delete');
   }
 
+  /// POST /api/tracking/trips/{id}/update-gpx — atualiza pontos da viagem via GPX
+  Future<Map<String, dynamic>> updateTripFromGpx(int tripId, String gpxContent) async {
+    return await _post('/api/tracking/trips/$tripId/update-gpx', body: {
+      'file_content': gpxContent,
+    }) as Map<String, dynamic>;
+  }
+
   // ----------------------- SOS -----------------------
 
   /// POST /api/sos/trigger — Aciona o SOS
