@@ -2,6 +2,8 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 
+import 'app_logger.dart';
+
 /// Serviço de localização GPS para o tracking de viagem.
 ///
 /// Usa GPS de alta precisão. Filtra apenas coordenadas 0,0.
@@ -22,7 +24,7 @@ class LocationService {
   Future<bool> ensurePermission() async {
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
-      debugPrint('[GPS] Serviço de localização desativado');
+      AppLogger.error('GPS', 'Serviço de localização desativado');
       return false;
     }
 
@@ -30,17 +32,17 @@ class LocationService {
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) {
-        debugPrint('[GPS] Permissão negada');
+        AppLogger.error('GPS', 'Permissão negada');
         return false;
       }
     }
 
     if (permission == LocationPermission.deniedForever) {
-      debugPrint('[GPS] Permissão negada permanentemente');
+      AppLogger.error('GPS', 'Permissão negada permanentemente');
       return false;
     }
 
-    debugPrint('[GPS] Permissão concedida');
+    AppLogger.info('GPS', 'Permissão concedida');
     return true;
   }
 
@@ -59,20 +61,20 @@ class LocationService {
 
     for (int attempt = 0; attempt < 3; attempt++) {
       try {
-        debugPrint('[GPS] Tentativa ${attempt + 1} de obter posição...');
+        AppLogger.log('GPS', 'Tentativa ${attempt + 1} de obter posição...');
         final pos = await Geolocator.getCurrentPosition(
           desiredAccuracy: locationAccuracy,
           timeLimit: const Duration(seconds: 15),
         );
-        debugPrint('[GPS] Posição obtida: ${pos.latitude}, ${pos.longitude} (acc: ${pos.accuracy}m, speed: ${pos.speed}m/s)');
+        AppLogger.log('GPS', 'Posição obtida: ${pos.latitude}, ${pos.longitude} (acc: ${pos.accuracy}m, speed: ${pos.speed}m/s)');
 
         if (_isValidPosition(pos.latitude, pos.longitude)) {
           return pos;
         }
-        debugPrint('[GPS] Coordenadas inválidas (0,0) — tentando novamente');
+        AppLogger.log('GPS', 'Coordenadas inválidas (0,0) — tentando novamente');
         await Future.delayed(const Duration(seconds: 2));
       } catch (e) {
-        debugPrint('[GPS] Erro: $e');
+        AppLogger.error('GPS', 'Erro ao obter posição: $e');
         await Future.delayed(const Duration(seconds: 2));
       }
     }
@@ -80,7 +82,7 @@ class LocationService {
     // Tenta última posição conhecida
     final lastKnown = await Geolocator.getLastKnownPosition();
     if (lastKnown != null && _isValidPosition(lastKnown.latitude, lastKnown.longitude)) {
-      debugPrint('[GPS] Usando última posição conhecida: ${lastKnown.latitude}, ${lastKnown.longitude}');
+      AppLogger.log('GPS', 'Usando última posição conhecida: ${lastKnown.latitude}, ${lastKnown.longitude}');
       return lastKnown;
     }
 
@@ -102,7 +104,7 @@ class LocationService {
         ? LocationAccuracy.bestForNavigation
         : LocationAccuracy.high;
 
-    debugPrint('[GPS] Iniciando stream (accuracy: $locationAccuracy, distanceFilter: $distanceFilterMeters m)');
+    AppLogger.log('GPS', 'Iniciando stream (accuracy: $locationAccuracy, distanceFilter: $distanceFilterMeters m)');
 
     return Geolocator.getPositionStream(
       locationSettings: LocationSettings(
@@ -110,10 +112,10 @@ class LocationService {
         distanceFilter: distanceFilterMeters.toInt(),
       ),
     ).where((pos) {
-      // Filtra apenas 0,0 — TODO o resto passa para o TripProvider decidir
+      // Filtra apenas 0,0 — todo o resto passa para o TripProvider decidir
       final valid = _isValidPosition(pos.latitude, pos.longitude);
       if (!valid) {
-        debugPrint('[GPS Stream] Posição rejeitada: 0,0');
+        AppLogger.log('GPS', 'Stream: posição rejeitada (0,0)');
       }
       return valid;
     });

@@ -7,6 +7,7 @@ import 'package:latlong2/latlong.dart';
 
 import '../models/trip.dart';
 import '../services/api_service.dart';
+import '../services/app_logger.dart';
 import '../services/location_service.dart';
 import '../services/tracking_service.dart';
 import '../config/app_config.dart';
@@ -224,7 +225,7 @@ class TripProvider extends ChangeNotifier with WidgetsBindingObserver {
           );
         } catch (e) {
           // Erro no background service não impede o tracking em primeiro plano
-          debugPrint('Erro ao iniciar background service: $e');
+          AppLogger.error('TRACKING', 'Erro ao iniciar background service: $e');
         }
       }
       return true;
@@ -250,7 +251,7 @@ class TripProvider extends ChangeNotifier with WidgetsBindingObserver {
     _sub?.cancel();
     _tracking = true;
     notifyListeners();
-    debugPrint('[TRACKING] Iniciando stream de GPS...');
+    AppLogger.log('TRACKING', 'Iniciando stream de GPS...');
 
     // SEM distanceFilter — recebe todas as posições do GPS
     _sub = _location.positionStream(
@@ -258,7 +259,7 @@ class TripProvider extends ChangeNotifier with WidgetsBindingObserver {
     ).listen(
       (pos) async {
         if (_paused || _activeTrip == null) return;
-        debugPrint('[TRACKING] Posição recebida: ${pos.latitude.toStringAsFixed(5)}, ${pos.longitude.toStringAsFixed(5)} speed=${(pos.speed * 3.6).toStringAsFixed(1)}km/h acc=${pos.accuracy.toStringAsFixed(0)}m');
+        AppLogger.log('TRACKING', 'Posição recebida: ${pos.latitude.toStringAsFixed(5)}, ${pos.longitude.toStringAsFixed(5)} speed=${(pos.speed * 3.6).toStringAsFixed(1)}km/h acc=${pos.accuracy.toStringAsFixed(0)}m');
 
         // Sempre atualiza posição atual para o mapa
         _lastLat = pos.latitude;
@@ -268,14 +269,14 @@ class TripProvider extends ChangeNotifier with WidgetsBindingObserver {
 
         // Aplica regras para decidir se grava o ponto
         if (_shouldRecordPoint(pos)) {
-          debugPrint('[TRACKING] Ponto APROVADO para gravação');
+          AppLogger.log('TRACKING', 'Ponto APROVADO para gravação');
           await _sendPoint(pos);
         } else {
-          debugPrint('[TRACKING] Ponto rejeitado pelas regras de distância/speed');
+          AppLogger.log('TRACKING', 'Ponto rejeitado pelas regras de distância/speed');
         }
       },
       onError: (e) {
-        debugPrint('[TRACKING] Erro no stream de GPS: $e');
+        AppLogger.log('TRACKING', 'Erro no stream de GPS: $e');
         _error = 'Erro de GPS: $e';
         notifyListeners();
       },
@@ -289,7 +290,7 @@ class TripProvider extends ChangeNotifier with WidgetsBindingObserver {
   bool _shouldRecordPoint(Position pos) {
     // Sem último ponto gravado — registra o primeiro
     if (_lastSentLat == null || _lastSentLng == null) {
-      debugPrint('[TRACKING] Primeiro ponto — sempre grava');
+      AppLogger.log('TRACKING', 'Primeiro ponto — sempre grava');
       return true;
     }
 
@@ -298,7 +299,7 @@ class TripProvider extends ChangeNotifier with WidgetsBindingObserver {
     );
 
     final speedKmh = pos.speed * 3.6;
-    debugPrint('[TRACKING] Distância desde último gravado: ${meters.toStringAsFixed(1)}m, speed: ${speedKmh.toStringAsFixed(1)}km/h');
+    AppLogger.log('TRACKING', 'Distância desde último gravado: ${meters.toStringAsFixed(1)}m, speed: ${speedKmh.toStringAsFixed(1)}km/h');
 
     // Parado de verdade — não conta
     if (speedKmh < 2 && meters < 5) return false;
@@ -355,7 +356,7 @@ class TripProvider extends ChangeNotifier with WidgetsBindingObserver {
       _routePoints.add(LatLng(pos.latitude, pos.longitude));
       notifyListeners();
 
-      debugPrint('[TRACKING] Enviando ponto à API: trip=${_activeTrip!.id} lat=${pos.latitude} lng=${pos.longitude}');
+      AppLogger.log('TRACKING', 'Enviando ponto à API: trip=${_activeTrip!.id} lat=${pos.latitude} lng=${pos.longitude}');
       await _api.addPoint(
         _activeTrip!.id,
         lat: pos.latitude,
@@ -366,13 +367,13 @@ class TripProvider extends ChangeNotifier with WidgetsBindingObserver {
         accuracy: pos.accuracy,
         recordedAt: DateTime.now().toIso8601String(),
       );
-      debugPrint('[TRACKING] Ponto enviado com sucesso!');
+      AppLogger.log('TRACKING', 'Ponto enviado com sucesso!');
     } on ApiException catch (e) {
-      debugPrint('[TRACKING] Erro ao enviar ponto: ${e.message}');
+      AppLogger.log('TRACKING', 'Erro ao enviar ponto: ${e.message}');
       _error = 'Falha ao enviar ponto: ${e.message}';
       notifyListeners();
     } catch (e) {
-      debugPrint('[TRACKING] Erro inesperado: $e');
+      AppLogger.log('TRACKING', 'Erro inesperado: $e');
     }
   }
 
@@ -430,7 +431,7 @@ class TripProvider extends ChangeNotifier with WidgetsBindingObserver {
         try {
           await TrackingService.stop();
         } catch (e) {
-          debugPrint('Erro ao parar background service: $e');
+          AppLogger.error('TRACKING', 'Erro ao parar background service: $e');
         }
       }
       final finished = await _api.finishTrip(_activeTrip!.id, name: name);
