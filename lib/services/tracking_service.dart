@@ -12,34 +12,47 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// Serviço de tracking em segundo plano.
 ///
 /// Mantém o GPS ativo e envia pontos para o servidor mesmo quando
-/// o app é fechado. O serviço roda como um foreground service no Android
-/// e mostra uma notificação visível na tela de bloqueio com
-/// quilometragem e tempo de viagem em tempo real.
+/// o app é fechado. Mostra uma notificação visível na tela de bloqueio
+/// com quilometragem e tempo de viagem em tempo real.
 class TrackingService {
   static const _kActiveTripId = 'bg_active_trip_id';
   static const _kApiToken = 'bg_api_token';
   static const _kApiBaseUrl = 'bg_api_base_url';
   static const _kTripStartTime = 'bg_trip_start_time';
 
-  static final FlutterLocalNotificationsPlugin _notifications =
-      FlutterLocalNotificationsPlugin();
-
   static const _notificationChannelId = 'motohead_tracking';
   static const _notificationId = 8888;
+
+  static final FlutterLocalNotificationsPlugin _notifications =
+      FlutterLocalNotificationsPlugin();
 
   /// Inicializa o serviço de background e o canal de notificação.
   /// Seguro para chamar no main() — não lança exceções.
   static Future<void> initialize() async {
     try {
       // Inicializa notificações locais
-      const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+      const androidSettings =
+          AndroidInitializationSettings('@mipmap/ic_launcher');
       const iosSettings = DarwinInitializationSettings();
       await _notifications.initialize(
-        const InitializationSettings(android: androidSettings, iOS: iosSettings),
+        const InitializationSettings(
+            android: androidSettings, iOS: iosSettings),
       );
 
       // Cria canal de notificação visível na tela de bloqueio
-      await _createNotificationChannel();
+      const channel = AndroidNotificationChannel(
+        _notificationChannelId,
+        'MotoHead Tracking',
+        description: 'Notificação de tracking de viagem ativa',
+        importance: Importance.high,
+        enableVibration: false,
+        playSound: false,
+      );
+
+      await _notifications
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>()
+          ?.createNotificationChannel(channel);
 
       final service = FlutterBackgroundService();
 
@@ -60,26 +73,8 @@ class TrackingService {
         ),
       );
     } catch (e) {
-      // Ignora erros de inicialização — o tracking em background é opcional
       debugPrint('Erro ao inicializar tracking service: $e');
     }
-  }
-
-  /// Cria o canal de notificação com visibilidade pública na tela de bloqueio.
-  static Future<void> _createNotificationChannel() async {
-    const channel = AndroidNotificationChannel(
-      _notificationChannelId,
-      'MotoHead Tracking',
-      description: 'Notificação de tracking de viagem ativa',
-      importance: Importance.high,
-      enableVibration: false,
-      playSound: false,
-    );
-
-    await _notifications
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(channel);
   }
 
   /// Atualiza a notificação com quilometragem e tempo atuais.
@@ -88,39 +83,43 @@ class TrackingService {
     required int durationSeconds,
     required double speedKmh,
   }) async {
-    final h = durationSeconds ~/ 3600;
-    final m = (durationSeconds % 3600) ~/ 60;
-    final s = durationSeconds % 60;
-    final timeStr =
-        '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
+    try {
+      final h = durationSeconds ~/ 3600;
+      final m = (durationSeconds % 3600) ~/ 60;
+      final s = durationSeconds % 60;
+      final timeStr =
+          '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
 
-    final content = 'Tempo: $timeStr  |  Distância: ${distanceKm.toStringAsFixed(2)} km  |  Vel: ${speedKmh.toStringAsFixed(0)} km/h';
+      final content =
+          'Tempo: $timeStr  |  Dist: ${distanceKm.toStringAsFixed(2)} km  |  Vel: ${speedKmh.toStringAsFixed(0)} km/h';
 
-    const androidDetails = AndroidNotificationDetails(
-      _notificationChannelId,
-      'MotoHead Tracking',
-      channelDescription: 'Notificação de tracking de viagem ativa',
-      importance: Importance.high,
-      priority: Priority.high,
-      visibility: NotificationVisibility.public,
-      ongoing: true,
-      showWhen: false,
-      styleInformation: BigTextStyleInformation(''),
-      icon: '@mipmap/ic_launcher',
-    );
+      const androidDetails = AndroidNotificationDetails(
+        _notificationChannelId,
+        'MotoHead Tracking',
+        channelDescription: 'Notificação de tracking de viagem ativa',
+        importance: Importance.high,
+        priority: Priority.high,
+        visibility: NotificationVisibility.public,
+        ongoing: true,
+        showWhen: false,
+        icon: '@mipmap/ic_launcher',
+      );
 
-    const iosDetails = DarwinNotificationDetails(
-      presentAlert: false,
-      presentBadge: false,
-      presentSound: false,
-    );
+      const iosDetails = DarwinNotificationDetails(
+        presentAlert: false,
+        presentBadge: false,
+        presentSound: false,
+      );
 
-    await _notifications.show(
-      _notificationId,
-      'MotoHead — Viagem em andamento',
-      content,
-      const NotificationDetails(android: androidDetails, iOS: iosDetails),
-    );
+      await _notifications.show(
+        _notificationId,
+        'MotoHead — Viagem em andamento',
+        content,
+        const NotificationDetails(android: androidDetails, iOS: iosDetails),
+      );
+    } catch (e) {
+      // Ignora erro de notificação — não afeta o tracking
+    }
   }
 
   /// Inicia o serviço de tracking em background.
@@ -129,32 +128,52 @@ class TrackingService {
     required String token,
     required String apiBaseUrl,
   }) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt(_kActiveTripId, tripId);
-    await prefs.setString(_kApiToken, token);
-    await prefs.setString(_kApiBaseUrl, apiBaseUrl);
-    await prefs.setInt(_kTripStartTime, DateTime.now().millisecondsSinceEpoch);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(_kActiveTripId, tripId);
+      await prefs.setString(_kApiToken, token);
+      await prefs.setString(_kApiBaseUrl, apiBaseUrl);
+      await prefs.setInt(
+          _kTripStartTime, DateTime.now().millisecondsSinceEpoch);
 
-    final service = FlutterBackgroundService();
-    await service.startService();
+      final service = FlutterBackgroundService();
+      await service.startService();
+
+      // Mostra notificação imediatamente
+      await _updateNotification(
+        distanceKm: 0,
+        durationSeconds: 0,
+        speedKmh: 0,
+      );
+    } catch (e) {
+      debugPrint('Erro ao iniciar tracking service: $e');
+    }
   }
 
   /// Para o serviço de tracking em background.
   static Future<void> stop() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_kActiveTripId);
-    await prefs.remove(_kTripStartTime);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_kActiveTripId);
+      await prefs.remove(_kTripStartTime);
 
-    final service = FlutterBackgroundService();
-    service.invoke('stop');
+      final service = FlutterBackgroundService();
+      service.invoke('stop');
 
-    await _notifications.cancel(_notificationId);
+      await _notifications.cancel(_notificationId);
+    } catch (e) {
+      debugPrint('Erro ao parar tracking service: $e');
+    }
   }
 
   /// Verifica se o serviço está rodando.
   static Future<bool> isRunning() async {
-    final service = FlutterBackgroundService();
-    return await service.isRunning();
+    try {
+      final service = FlutterBackgroundService();
+      return await service.isRunning();
+    } catch (_) {
+      return false;
+    }
   }
 
   /// Verifica se há uma viagem ativa em background.
@@ -187,6 +206,7 @@ class TrackingService {
     double totalDistanceKm = 0;
     double lastLat = 0;
     double lastLng = 0;
+    double currentSpeedKmh = 0;
     final startTime = startTimeMs != null
         ? DateTime.fromMillisecondsSinceEpoch(startTimeMs)
         : DateTime.now();
@@ -198,14 +218,14 @@ class TrackingService {
       _updateNotification(
         distanceKm: totalDistanceKm,
         durationSeconds: elapsed,
-        speedKmh: 0,
+        speedKmh: currentSpeedKmh,
       );
     });
 
     // Stream de posições GPS
     const locationSettings = LocationSettings(
       accuracy: LocationAccuracy.high,
-      distanceFilter: 10,
+      distanceFilter: 5,
     );
 
     final positionStream = Geolocator.getPositionStream(
@@ -216,13 +236,33 @@ class TrackingService {
       // Rejeita coordenadas inválidas (0,0 = meio do oceano)
       if (position.latitude == 0.0 && position.longitude == 0.0) return;
 
-      // Calcula distância incremental
+      currentSpeedKmh = position.speed * 3.6;
+
+      // Regras inteligentes para contagem de pontos
+      bool shouldRecord = true;
       if (lastLat != 0.0 && lastLng != 0.0) {
-        final meters = _haversine(lastLat, lastLng, position.latitude, position.longitude);
-        if (meters > 5) {
+        final meters =
+            _haversine(lastLat, lastLng, position.latitude, position.longitude);
+
+        // Parado — não conta
+        if (currentSpeedKmh < 2) {
+          shouldRecord = false;
+        } else if (currentSpeedKmh < 30) {
+          // Baixa velocidade: a cada 10m
+          shouldRecord = meters >= 10;
+        } else if (currentSpeedKmh < 80) {
+          // Média velocidade: a cada 50m
+          shouldRecord = meters >= 50;
+        } else {
+          // Alta velocidade: a cada 150m
+          shouldRecord = meters >= 150;
+        }
+
+        if (shouldRecord && meters > 0) {
           totalDistanceKm += meters / 1000.0;
         }
       }
+
       lastLat = position.latitude;
       lastLng = position.longitude;
 
@@ -231,15 +271,17 @@ class TrackingService {
       _updateNotification(
         distanceKm: totalDistanceKm,
         durationSeconds: elapsed,
-        speedKmh: position.speed * 3.6,
+        speedKmh: currentSpeedKmh,
       );
 
-      // Envia o ponto para o servidor
-      try {
-        final url = Uri.parse('$baseUrl/api/tracking/trips/$tripId/point');
-        await _sendPoint(url, token, position);
-      } catch (e) {
-        // Erro de rede — continua tentando no próximo ponto
+      // Envia o ponto apenas se passou nas regras
+      if (shouldRecord) {
+        try {
+          final url = Uri.parse('$baseUrl/api/tracking/trips/$tripId/point');
+          await _sendPoint(url, token, position);
+        } catch (e) {
+          // Erro de rede — continua tentando no próximo ponto
+        }
       }
     });
 

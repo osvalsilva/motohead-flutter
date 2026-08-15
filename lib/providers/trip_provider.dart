@@ -236,17 +236,63 @@ class TripProvider extends ChangeNotifier with WidgetsBindingObserver {
     _sub?.cancel();
     _tracking = true;
     notifyListeners();
-    
-    _sub = _location.positionStream().listen(
+
+    _sub = _location.positionStream(
+      distanceFilterMeters: 5, // filtro base — o _shouldRecordPoint decide se envia
+    ).listen(
       (pos) async {
         if (_paused || _activeTrip == null) return;
-        await _sendPoint(pos);
+        // Rejeita coordenadas inválidas (0,0 = meio do oceano)
+        if (pos.latitude == 0.0 && pos.longitude == 0.0) return;
+        // Sempre atualiza posição atual para o mapa
+        _lastLat = pos.latitude;
+        _lastLng = pos.longitude;
+        _currentSpeed = (pos.speed * 3.6); // m/s -> km/h
+        notifyListeners();
+        // Aplica regras inteligentes para decidir se grava o ponto
+        if (_shouldRecordPoint(pos)) {
+          await _sendPoint(pos);
+        }
       },
       onError: (e) {
         _error = 'Erro de GPS: $e';
         notifyListeners();
       },
     );
+  }
+
+  /// Regras inteligentes para contagem de pontos:
+  /// - Parado (< 2 km/h): não conta ponto (ignora pequenas variações de GPS)
+  /// - Baixa velocidade (2-30 km/h): conta pontos a cada 10m (absorve variações de curva)
+  /// - Média velocidade (30-80 km/h): conta pontos a cada 50m
+  /// - Alta velocidade (> 80 km/h): conta pontos a cada 150m (linha reta, menos pontos)
+  bool _shouldRecordPoint(Position pos) {
+    final speedKmh = pos.speed * 3.6;
+
+    // Parado — não conta ponto
+    if (speedKmh < 2) return false;
+
+    // Sem último ponto — registra o primeiro
+    if (_lastLat == null || _lastLng == null) return true;
+
+    final meters = _calculateDistance(
+      _lastLat!, _lastLng!, pos.latitude, pos.longitude,
+    );
+
+    // Distância mínima baseada na velocidade
+    double minDistance;
+    if (speedKmh < 30) {
+      // Baixa velocidade: mais pontos para capturar curvas e variações
+      minDistance = 10;
+    } else if (speedKmh < 80) {
+      // Média velocidade: pontos moderados
+      minDistance = 50;
+    } else {
+      // Alta velocidade: menos pontos (linha reta na estrada)
+      minDistance = 150;
+    }
+
+    return meters >= minDistance;
   }
 
   void _startTicker() {
@@ -271,24 +317,17 @@ class TripProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<void> _sendPoint(Position pos) async {
     if (_activeTrip == null) return;
-    // Rejeita coordenadas inválidas (0,0 = meio do oceano)
-    if (pos.latitude == 0.0 && pos.longitude == 0.0) return;
     try {
-      // Atualiza estatísticas locais.
+      // Atualiza estatísticas locais
       if (_lastLat != null && _lastLng != null) {
         final meters = _calculateDistance(
           _lastLat!, _lastLng!, pos.latitude, pos.longitude,
         );
-        if (meters > 5) {
-          _currentDistanceKm += meters / 1000.0;
-        }
+        _currentDistanceKm += meters / 1000.0;
       }
-      _currentSpeed = (pos.speed * 3.6); // m/s -> km/h
       if (_currentSpeed >= 2 && _lastPointAt != null) {
         _movingSeconds += DateTime.now().difference(_lastPointAt!).inSeconds;
       }
-      _lastLat = pos.latitude;
-      _lastLng = pos.longitude;
       _lastPointAt = DateTime.now();
       // Adiciona ponto à rota para traçado em tempo real
       _routePoints.add(LatLng(pos.latitude, pos.longitude));

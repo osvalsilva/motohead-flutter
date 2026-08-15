@@ -36,10 +36,15 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
       final points = data['points'] as List? ?? [];
       setState(() {
         _routePoints = points.map<LatLng>((p) {
-          final lat = double.tryParse('${p['lat']}') ?? 0.0;
-          final lng = double.tryParse('${p['lng']}') ?? 0.0;
+          // Banco usa latitude/longitude, não lat/lng
+          final lat = (p['latitude'] != null)
+              ? double.tryParse('${p['latitude']}') ?? 0.0
+              : double.tryParse('${p['lat']}') ?? 0.0;
+          final lng = (p['longitude'] != null)
+              ? double.tryParse('${p['longitude']}') ?? 0.0
+              : double.tryParse('${p['lng']}') ?? 0.0;
           return LatLng(lat, lng);
-        }).toList();
+        }).where((p) => p.latitude != 0.0 || p.longitude != 0.0).toList();
         // Atualiza a trip com os dados completos
         _updatedTrip = Trip.fromJson(data);
         _loading = false;
