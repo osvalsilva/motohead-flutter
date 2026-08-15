@@ -63,7 +63,22 @@ class ApiService {
     try {
       json = jsonDecode(body) as Map<String, dynamic>;
     } catch (_) {
-      throw ApiException(resp.statusCode, 'Resposta inválida (não-JSON)', rawBody: body);
+      // Mensagem mais útil para diagnóstico
+      String msg;
+      if (body.contains('<html') || body.contains('<!DOCTYPE')) {
+        msg = 'O servidor retornou uma página HTML em vez de JSON. '
+              'Verifique se a API está online e se a URL está correta.';
+      } else if (resp.statusCode == 404) {
+        msg = 'Endpoint não encontrado (404). Verifique a URL da API.';
+      } else if (resp.statusCode == 500) {
+        msg = 'Erro interno do servidor (500). Verifique os logs do backend.';
+      } else if (resp.statusCode == 0) {
+        msg = 'Sem conexão com o servidor. Verifique sua internet.';
+      } else {
+        msg = 'Resposta inválida do servidor (HTTP ${resp.statusCode}). '
+              'Não é JSON válido.';
+      }
+      throw ApiException(resp.statusCode, msg, rawBody: body.length > 500 ? body.substring(0, 500) : body);
     }
 
     if (resp.statusCode < 200 || resp.statusCode >= 300) {

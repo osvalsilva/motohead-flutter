@@ -322,10 +322,14 @@ class _TripTile extends StatelessWidget {
         ),
         child: const Icon(Icons.delete, color: Colors.white, size: 28),
       ),
+      // confirmDismiss faz a chamada à API ANTES de remover o widget
+      // Se falhar, retorna false e o widget volta à posição original
       confirmDismiss: (direction) async {
-        return await _confirmDelete(context);
-      },
-      onDismissed: (direction) async {
+        // Primeiro confirma com o usuário
+        final confirmed = await _confirmDelete(context);
+        if (!confirmed || !context.mounted) return false;
+
+        // Chama a API para apagar
         final trips = context.read<TripProvider>();
         final ok = await trips.deleteTrip(trip.id);
         if (context.mounted) {
@@ -346,6 +350,9 @@ class _TripTile extends StatelessWidget {
             );
           }
         }
+        // Retorna true apenas se a API confirmou — o widget será removido da lista
+        // pelo notifyListeners() do deleteTrip()
+        return ok;
       },
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
@@ -358,7 +365,6 @@ class _TripTile extends StatelessWidget {
           child: InkWell(
             borderRadius: BorderRadius.circular(10),
             onTap: () {
-              // Abre a página de detalhes com mapa e traçado da rota
               Navigator.push(
                 context,
                 MaterialPageRoute(
@@ -419,30 +425,31 @@ class _TripTile extends StatelessWidget {
 
   Future<bool> _confirmDelete(BuildContext context) async {
     return await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A1A),
-        title: const Text('Apagar viagem?',
-            style: TextStyle(color: Colors.white)),
-        content: Text(
-          'Tem certeza que deseja apagar "${trip.title ?? 'Viagem sem nome'}"? '
-          'Esta ação não pode ser desfeita.',
-          style: const TextStyle(color: Colors.white70),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('CANCELAR',
-                style: TextStyle(color: Colors.white54)),
+          context: context,
+          builder: (ctx) => AlertDialog(
+            backgroundColor: const Color(0xFF1A1A1A),
+            title: const Text('Apagar viagem?',
+                style: TextStyle(color: Colors.white)),
+            content: Text(
+              'Tem certeza que deseja apagar "${trip.title ?? 'Viagem sem nome'}"? '
+              'Esta ação não pode ser desfeita.',
+              style: const TextStyle(color: Colors.white70),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('CANCELAR',
+                    style: TextStyle(color: Colors.white54)),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                child: const Text('APAGAR'),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('APAGAR'),
-          ),
-        ],
-      ),
-    ) ?? false;
+        ) ??
+        false;
   }
 
   Future<void> _deleteWithConfirm(BuildContext context) async {
