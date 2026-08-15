@@ -2,10 +2,12 @@ import 'package:flutter/foundation.dart';
 
 import '../models/user.dart';
 import '../services/api_service.dart';
+import '../services/session_storage.dart';
 
 /// Estado de autenticação do app.
 ///
-/// MVP: sessão em memória (não persistida) — usuário loga toda vez que abre.
+/// Suporta "manter logado" — a sessão é persistida em SharedPreferences
+/// e restaurada automaticamente no boot do app.
 class AuthProvider extends ChangeNotifier {
   final _api = ApiService.instance;
 
@@ -22,25 +24,36 @@ class AuthProvider extends ChangeNotifier {
   String? get token => _session?.token;
 
   /// Restaura sessão persistida (chamado no boot do app).
-  /// MVP: não faz nada — sessão não persistida.
   Future<void> restore() async {
     _loading = true;
     _error = null;
     notifyListeners();
-    // MVP: sem persistência
+    try {
+      final saved = await SessionStorage.loadSession();
+      if (saved != null) {
+        _session = saved;
+        _api.token = saved.token;
+      }
+    } catch (e) {
+      // Sessão inválida — ignora silenciosamente
+      _session = null;
+    }
     _loading = false;
     notifyListeners();
   }
 
   /// Login com email/senha.
-  Future<bool> login(String email, String password) async {
+  /// Se [remember] for true, a sessão é persistida para auto-login.
+  Future<bool> login(String email, String password, {bool remember = true}) async {
     _busy = true;
     _error = null;
     notifyListeners();
     try {
       final session = await _api.login(email, password);
       _session = session;
-      // MVP: sem persistência
+      if (remember) {
+        await SessionStorage.saveSession(session);
+      }
       notifyListeners();
       return true;
     } on ApiException catch (e) {
@@ -57,13 +70,14 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  /// Logout — limpa sessão local e notifica.
+  /// Logout — limpa sessão local e persistida.
   Future<void> logout() async {
     try {
       await _api.logout();
     } catch (_) {}
     _session = null;
     _api.token = null;
+    await SessionStorage.clearSession();
     notifyListeners();
   }
 

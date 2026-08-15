@@ -20,6 +20,9 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION"/>
 
+    <!-- Wake lock para manter o serviço de tracking ativo -->
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
+
     <application
         android:label="MotoHead"
         android:name="${applicationName}"

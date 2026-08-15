@@ -20,6 +20,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   bool _obscure = true;
+  bool _remember = true;
 
   @override
   void dispose() {
@@ -31,7 +32,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     final auth = context.read<AuthProvider>();
-    final ok = await auth.login(_emailCtrl.text.trim(), _passwordCtrl.text);
+    final ok = await auth.login(_emailCtrl.text.trim(), _passwordCtrl.text, remember: _remember);
     if (!ok && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -101,7 +102,23 @@ class _LoginScreenState extends State<LoginScreen> {
                     },
                     onFieldSubmitted: (_) => _submit(),
                   ),
-                  const SizedBox(height: 28),
+                  const SizedBox(height: 16),
+                  // Manter logado
+                  Row(
+                    children: [
+                      Checkbox(
+                        value: _remember,
+                        onChanged: (v) => setState(() => _remember = v ?? true),
+                        activeColor: const Color(0xFFFF0000),
+                        checkColor: Colors.white,
+                      ),
+                      const Text(
+                        'Manter conectado',
+                        style: TextStyle(color: Colors.white54, fontSize: 14),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
                   SizedBox(
                     height: 52,
                     child: ElevatedButton(

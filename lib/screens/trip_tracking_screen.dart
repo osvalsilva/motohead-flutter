@@ -222,6 +222,7 @@ class _TripTrackingScreenState extends State<TripTrackingScreen> {
   }
 
   void _confirmFinish(BuildContext context, TripProvider trips) {
+    final nameCtrl = TextEditingController();
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -233,10 +234,29 @@ class _TripTrackingScreenState extends State<TripTrackingScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _row('Distância',
-                '${trips.currentDistanceKm.toStringAsFixed(0)} km'),
-            _row('Tempo em movimento',
+                '${trips.currentDistanceKm.toStringAsFixed(2)} km'),
+            _row('Tempo total',
                 '${(trips.totalDurationSeconds ~/ 3600).toString().padLeft(2, '0')}h'
                 '${((trips.totalDurationSeconds % 3600) ~/ 60).toString().padLeft(2, '0')}min'),
+            const SizedBox(height: 16),
+            const Text('Nome da viagem (opcional):',
+                style: TextStyle(color: Colors.white70, fontSize: 14)),
+            const SizedBox(height: 8),
+            TextField(
+              controller: nameCtrl,
+              autofocus: true,
+              decoration: const InputDecoration(
+                hintText: 'Ex.: Serra da Canastra',
+                hintStyle: TextStyle(color: Colors.white38),
+                enabledBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.white24),
+                ),
+                focusedBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Color(0xFFFF0000)),
+                ),
+              ),
+              style: const TextStyle(color: Colors.white),
+            ),
           ],
         ),
         actions: [
@@ -248,7 +268,7 @@ class _TripTrackingScreenState extends State<TripTrackingScreen> {
           TextButton(
             onPressed: () {
               Navigator.pop(ctx);
-              _showSaveOptions(context, trips);
+              _showSaveOptions(context, trips, name: nameCtrl.text.trim());
             },
             child: const Text('SALVAR',
                 style: TextStyle(color: Color(0xFFFF0000))),
@@ -258,7 +278,7 @@ class _TripTrackingScreenState extends State<TripTrackingScreen> {
     );
   }
 
-  void _showSaveOptions(BuildContext context, TripProvider trips) {
+  void _showSaveOptions(BuildContext context, TripProvider trips, {String? name}) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -343,7 +363,7 @@ class _TripTrackingScreenState extends State<TripTrackingScreen> {
           ElevatedButton(
             onPressed: () async {
               Navigator.pop(ctx);
-              await _finishTrip(context, trips);
+              await _finishTrip(context, trips, name: name);
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFFF0000),
@@ -380,8 +400,8 @@ class _TripTrackingScreenState extends State<TripTrackingScreen> {
     }
   }
 
-  Future<void> _finishTrip(BuildContext context, TripProvider trips) async {
-    final ok = await trips.finish();
+  Future<void> _finishTrip(BuildContext context, TripProvider trips, {String? name}) async {
+    final ok = await trips.finish(name: name);
     if (ok && context.mounted) {
       Navigator.pop(context); // volta para a lista
       ScaffoldMessenger.of(context).showSnackBar(
@@ -408,8 +428,8 @@ class _TripTrackingScreenState extends State<TripTrackingScreen> {
       );
 
   void _showStartDialog(BuildContext context, TripProvider trips) {
-    // Inicia viagem diretamente sem pedir nome
-    trips.startTrip(name: 'Viagem ${DateTime.now().day}/${DateTime.now().month}');
+    // Inicia viagem diretamente sem pedir nome — o nome será solicitado ao finalizar
+    trips.startTrip(name: '');
   }
 }
 
@@ -462,35 +482,44 @@ class _NoTripView extends StatelessWidget {
   }
 }
 
-/// Placeholder do mapa — spec §7 prioridade 1.
-///
-/// Para usar o Google Maps real:
-/// 1. Obter API key no Google Cloud Console
-/// 2. Substituir AIzaXXX no AndroidManifest.xml
-/// 3. Trocar este widget por GoogleMap(initialCameraPosition, ...)
+/// Mapa com OpenStreetMap mostrando a rota percorrida em tempo real.
 class _MapPlaceholder extends StatelessWidget {
   final TripProvider trips;
   const _MapPlaceholder({required this.trips});
 
   @override
   Widget build(BuildContext context) {
+    final center = trips.lastLat != null && trips.lastLng != null
+        ? LatLng(trips.lastLat!, trips.lastLng!)
+        : const LatLng(-22.9769, -49.8686);
+
     return Container(
       color: const Color(0xFF0A0A0A),
       child: Stack(
         children: [
-          // Mapa com OpenStreetMap
           FlutterMap(
             options: MapOptions(
-              initialCenter: trips.lastLat != null && trips.lastLng != null
-                  ? LatLng(trips.lastLat!, trips.lastLng!)
-                  : const LatLng(-22.9769, -49.8686),
+              initialCenter: center,
               initialZoom: 16.0,
+              keepAlive: true,
             ),
             children: [
               TileLayer(
                 urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 userAgentPackageName: 'com.motohead.app',
               ),
+              // Linha da rota percorrida
+              if (trips.routePoints.length >= 2)
+                PolylineLayer(
+                  polylines: [
+                    Polyline(
+                      points: trips.routePoints,
+                      color: const Color(0xFFFF0000),
+                      strokeWidth: 4.0,
+                    ),
+                  ],
+                ),
+              // Marcador da posição atual
               if (trips.lastLat != null && trips.lastLng != null)
                 MarkerLayer(
                   markers: [
@@ -508,21 +537,7 @@ class _MapPlaceholder extends StatelessWidget {
                 ),
             ],
           ),
-          Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  trips.paused ? 'VIAGEM PAUSADA' : 'TRACKING ATIVO',
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 2,
-                  ),
-                ),
-              ],
-            ),
-          ),
+          // Indicador de status
           Positioned(
             top: 12,
             left: 12,
@@ -538,7 +553,7 @@ class _MapPlaceholder extends StatelessWidget {
                 children: [
                   Icon(
                     trips.paused ? Icons.pause_circle : Icons.radio_button_checked,
-                    color: trips.paused ? Colors.orange : Color(0xFFFF0000),
+                    color: trips.paused ? Colors.orange : const Color(0xFFFF0000),
                     size: 14,
                   ),
                   const SizedBox(width: 6),
@@ -550,9 +565,46 @@ class _MapPlaceholder extends StatelessWidget {
               ),
             ),
           ),
+          // Contador de tempo e distância em tempo real sobre o mapa
+          Positioned(
+            top: 12,
+            right: 12,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.black54,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    _formatDuration(trips.totalDurationSeconds),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    '${trips.currentDistanceKm.toStringAsFixed(2)} km',
+                    style: const TextStyle(color: Colors.white70, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
+  }
+
+  String _formatDuration(int seconds) {
+    final h = seconds ~/ 3600;
+    final m = (seconds % 3600) ~/ 60;
+    final s = seconds % 60;
+    return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
   }
 }
 

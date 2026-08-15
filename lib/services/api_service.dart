@@ -184,8 +184,10 @@ class ApiService {
   }
 
   /// POST /api/tracking/trips/{id}/finish
-  Future<Trip> finishTrip(int tripId) async {
-    final data = await _post('/api/tracking/trips/$tripId/finish');
+  Future<Trip> finishTrip(int tripId, {String? name}) async {
+    final data = await _post('/api/tracking/trips/$tripId/finish', body: {
+      if (name != null && name.isNotEmpty) 'name': name,
+    });
     return Trip.fromJson(data['trip'] as Map<String, dynamic>);
   }
 
@@ -199,6 +201,13 @@ class ApiService {
   Future<Trip> resumeTrip(int tripId) async {
     final data = await _post('/api/tracking/trips/$tripId/resume');
     return Trip.fromJson(data['trip'] as Map<String, dynamic>);
+  }
+
+  /// GET /api/tracking/trips/{id} — detalhes da viagem com pontos e checkpoints
+  Future<Map<String, dynamic>> getTripDetails(int tripId, {int pointsLimit = 5000}) async {
+    return await _get('/api/tracking/trips/$tripId', query: {
+      'points_limit': pointsLimit.toString(),
+    }) as Map<String, dynamic>;
   }
 
   // ----------------------- SOS -----------------------

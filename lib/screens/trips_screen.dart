@@ -5,6 +5,7 @@ import '../models/trip.dart';
 import '../providers/trip_provider.dart';
 import '../widgets/sos_button.dart';
 import 'trip_tracking_screen.dart';
+import 'trip_detail_screen.dart';
 
 /// Tela "Viagem" — aba da bottom nav (spec §3, §13).
 ///
@@ -102,65 +103,24 @@ class TripsScreen extends StatelessWidget {
   }
 
   void _showStartDialog(BuildContext context, TripProvider trips) {
-    final nameCtrl = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A1A),
-        title: const Text('Nova viagem',
-            style: TextStyle(color: Colors.white)),
-        content: TextField(
-          controller: nameCtrl,
-          autofocus: true,
-          decoration: const InputDecoration(
-            hintText: 'Ex.: Serra da Canastra',
-            hintStyle: TextStyle(color: Colors.white38),
-            enabledBorder: UnderlineInputBorder(
-              borderSide: BorderSide(color: Colors.white24),
-            ),
-            focusedBorder: UnderlineInputBorder(
-              borderSide: BorderSide(color: Color(0xFFFF0000)),
-            ),
+    // Inicia viagem diretamente sem pedir nome — o nome será solicitado ao finalizar
+    trips.startTrip(name: '').then((ok) {
+      if (ok && context.mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const TripTrackingScreen(),
           ),
-          style: const TextStyle(color: Colors.white),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('CANCELAR',
-                style: TextStyle(color: Colors.white54)),
+        );
+      } else if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(trips.error ?? 'Falha ao iniciar viagem'),
+            backgroundColor: Colors.red,
           ),
-          ElevatedButton(
-            onPressed: () async {
-              final name = nameCtrl.text.trim();
-              if (name.isEmpty) return;
-              Navigator.pop(ctx);
-              final ok = await trips.startTrip(name: name);
-              if (ok && context.mounted) {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const TripTrackingScreen(),
-                  ),
-                );
-              } else if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(trips.error ?? 'Falha ao iniciar viagem'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFFF0000),
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('INICIAR'),
-          ),
-        ],
-      ),
-    );
+        );
+      }
+    });
   }
 }
 
@@ -345,12 +305,11 @@ class _TripTile extends StatelessWidget {
         child: InkWell(
           borderRadius: BorderRadius.circular(10),
           onTap: () {
-            // Detalhe completo fica no site (spec §13).
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text(
-                    'Detalhe completo disponível no site MotoHead'),
-                backgroundColor: Color(0xFF1A1A1A),
+            // Abre a página de detalhes com mapa e traçado da rota
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => TripDetailScreen(trip: trip),
               ),
             );
           },

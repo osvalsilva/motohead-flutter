@@ -6,6 +6,7 @@ import 'providers/trip_provider.dart';
 import 'providers/friend_provider.dart';
 import 'screens/login_screen.dart';
 import 'screens/main_shell.dart';
+import 'services/tracking_service.dart';
 
 /// MotoHead — Sua estrada. Nossa história.
 ///
@@ -13,6 +14,8 @@ import 'screens/main_shell.dart';
 /// MVP: Início, Viagem (tracking GPS), SOS, Perfil.
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  // Inicializa o serviço de tracking em background
+  TrackingService.initialize();
   runApp(const MotoHeadApp());
 }
 
@@ -50,9 +53,23 @@ class MotoHeadApp extends StatelessWidget {
 }
 
 /// Porta de entrada: decide entre Login e MainShell.
-/// MVP: sem persistência — sempre mostra Login.
-class _BootGate extends StatelessWidget {
+/// Restaura a sessão persistida (manter logado) no boot.
+class _BootGate extends StatefulWidget {
   const _BootGate();
+
+  @override
+  State<_BootGate> createState() => _BootGateState();
+}
+
+class _BootGateState extends State<_BootGate> {
+  @override
+  void initState() {
+    super.initState();
+    // Restaura sessão persistida (manter logado).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<AuthProvider>().restore();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -62,7 +79,6 @@ class _BootGate extends StatelessWidget {
       return const _Splash();
     }
 
-    // MVP: sem persistência — sempre mostra Login
     if (!auth.isAuthenticated) {
       return const LoginScreen();
     }

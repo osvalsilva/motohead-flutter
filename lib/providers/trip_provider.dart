@@ -1,11 +1,15 @@
 import 'dart:async';
+import 'dart:math' as _math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../models/trip.dart';
 import '../services/api_service.dart';
 import '../services/location_service.dart';
+import '../services/tracking_service.dart';
+import '../config/app_config.dart';
 
 /// Estado da viagem ativa + tracking GPS (spec §5, §6, §8).
 ///
@@ -36,6 +40,10 @@ class TripProvider extends ChangeNotifier {
   DateTime? _tripStartTime; // Quando a viagem foi iniciada
   StreamSubscription<Position>? _sub;
   Ticker? _ticker;
+
+  // Pontos da rota para traçado em tempo real no mapa
+  final List<LatLng> _routePoints = [];
+  List<LatLng> get routePoints => List.unmodifiable(_routePoints);
 
   bool get loading => _loading;
   bool get tracking => _tracking;
@@ -125,6 +133,8 @@ class TripProvider extends ChangeNotifier {
       _lastPointAt = DateTime.now();
       _tripStartTime = DateTime.now();
       _paused = false;
+      _routePoints.clear();
+      _routePoints.add(LatLng(pos.latitude, pos.longitude));
       notifyListeners();
 
       // Envia o primeiro ponto.
@@ -134,6 +144,14 @@ class TripProvider extends ChangeNotifier {
       _startStream();
       // Começa o ticker de duração.
       _startTicker();
+      // Inicia o serviço de background (continua tracking ao fechar o app)
+      if (!kIsWeb) {
+        await TrackingService.start(
+          tripId: trip.id,
+          token: _api.token ?? '',
+          apiBaseUrl: AppConfig.apiBaseUrl,
+        );
+      }
       return true;
     } on UnimplementedError catch (e) {
       _error = 'Geolocator temporariamente desabilitado. Verifique se o GPS está ativado nas configurações do navegador.';
@@ -187,31 +205,26 @@ class TripProvider extends ChangeNotifier {
   }
 
   Future<void> _sendPoint(Position pos) async {
-    
-    if (_activeTrip == null) {
-      
-      return;
-    }
+    if (_activeTrip == null) return;
     try {
       // Atualiza estatísticas locais.
       if (_lastLat != null && _lastLng != null) {
-        // Cálculo manual de distância (simplificado)
         final meters = _calculateDistance(
           _lastLat!, _lastLng!, pos.latitude, pos.longitude,
         );
         if (meters > 5) {
           _currentDistanceKm += meters / 1000.0;
-          
         }
       }
       _currentSpeed = (pos.speed * 3.6); // m/s -> km/h
       if (_currentSpeed >= 2 && _lastPointAt != null) {
         _movingSeconds += DateTime.now().difference(_lastPointAt!).inSeconds;
-        
       }
       _lastLat = pos.latitude;
       _lastLng = pos.longitude;
       _lastPointAt = DateTime.now();
+      // Adiciona ponto à rota para traçado em tempo real
+      _routePoints.add(LatLng(pos.latitude, pos.longitude));
       notifyListeners();
 
       await _api.addPoint(
@@ -271,7 +284,7 @@ class TripProvider extends ChangeNotifier {
   }
 
   /// Finaliza a viagem (spec §12).
-  Future<bool> finish() async {
+  Future<bool> finish({String? name}) async {
     if (_activeTrip == null) return false;
     _loading = true;
     notifyListeners();
@@ -280,13 +293,18 @@ class TripProvider extends ChangeNotifier {
       _sub = null;
       _tracking = false;
       _stopTicker();
-      final finished = await _api.finishTrip(_activeTrip!.id);
+      // Para o serviço de background
+      if (!kIsWeb) {
+        await TrackingService.stop();
+      }
+      final finished = await _api.finishTrip(_activeTrip!.id, name: name);
       _history.insert(0, finished);
       _activeTrip = null;
       _currentDistanceKm = 0;
       _movingSeconds = 0;
       _totalDurationSeconds = 0;
       _currentSpeed = 0;
+      _routePoints.clear();
       notifyListeners();
       return true;
     } on ApiException catch (e) {
@@ -306,6 +324,9 @@ class TripProvider extends ChangeNotifier {
     _tracking = false;
     _paused = false;
     _activeTrip = null;
+    if (!kIsWeb) {
+      await TrackingService.stop();
+    }
     notifyListeners();
   }
 
@@ -314,11 +335,23 @@ class TripProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Cálculo de distância entre dois pontos (simplificado).
+  /// Cálculo de distância entre dois pontos (fórmula de Haversine).
   double _calculateDistance(double lat1, double lng1, double lat2, double lng2) {
-    // Cálculo simplificado - retorna 0 temporariamente
-    return 0;
+    const double earthRadius = 6371000; // metros
+    final dLat = _toRadians(lat2 - lat1);
+    final dLng = _toRadians(lng2 - lng1);
+    final a = (sin(dLat / 2) * sin(dLat / 2)) +
+        cos(_toRadians(lat1)) * cos(_toRadians(lat2)) *
+        sin(dLng / 2) * sin(dLng / 2);
+    final c = 2 * atan2(sqrt(a), sqrt(1 - a));
+    return earthRadius * c;
   }
+
+  double _toRadians(double deg) => deg * (3.14159265359 / 180);
+  double sin(double x) => _math.sin(x);
+  double cos(double x) => _math.cos(x);
+  double atan2(double y, double x) => _math.atan2(y, x);
+  double sqrt(double x) => _math.sqrt(x);
 
   @override
   void dispose() {
