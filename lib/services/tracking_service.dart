@@ -129,6 +129,16 @@ class TrackingService {
     required String apiBaseUrl,
   }) async {
     try {
+      // Garante que o serviço foi configurado (se não foi ainda)
+      final service = FlutterBackgroundService();
+      var isRunning = false;
+      try {
+        isRunning = await service.isRunning();
+      } catch (_) {}
+      if (!isRunning) {
+        await initialize();
+      }
+
       final prefs = await SharedPreferences.getInstance();
       await prefs.setInt(_kActiveTripId, tripId);
       await prefs.setString(_kApiToken, token);
@@ -136,7 +146,6 @@ class TrackingService {
       await prefs.setInt(
           _kTripStartTime, DateTime.now().millisecondsSinceEpoch);
 
-      final service = FlutterBackgroundService();
       await service.startService();
 
       // Mostra notificação imediatamente

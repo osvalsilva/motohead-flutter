@@ -23,7 +23,12 @@ class TripProvider extends ChangeNotifier with WidgetsBindingObserver {
   final _location = LocationService.instance;
 
   TripProvider() {
-    WidgetsBinding.instance.addObserver(this);
+    // Registra como observer para detectar quando o app volta do background
+    try {
+      WidgetsBinding.instance.addObserver(this);
+    } catch (_) {
+      // Ignora se o binding não estiver pronto
+    }
   }
 
   @override
@@ -207,11 +212,16 @@ class TripProvider extends ChangeNotifier with WidgetsBindingObserver {
       _startTicker();
       // Inicia o serviço de background (continua tracking ao fechar o app)
       if (!kIsWeb) {
-        await TrackingService.start(
-          tripId: trip.id,
-          token: _api.token ?? '',
-          apiBaseUrl: AppConfig.apiBaseUrl,
-        );
+        try {
+          await TrackingService.start(
+            tripId: trip.id,
+            token: _api.token ?? '',
+            apiBaseUrl: AppConfig.apiBaseUrl,
+          );
+        } catch (e) {
+          // Erro no background service não impede o tracking em primeiro plano
+          debugPrint('Erro ao iniciar background service: $e');
+        }
       }
       return true;
     } on UnimplementedError catch (e) {
@@ -401,7 +411,11 @@ class TripProvider extends ChangeNotifier with WidgetsBindingObserver {
       _stopTicker();
       // Para o serviço de background
       if (!kIsWeb) {
-        await TrackingService.stop();
+        try {
+          await TrackingService.stop();
+        } catch (e) {
+          debugPrint('Erro ao parar background service: $e');
+        }
       }
       final finished = await _api.finishTrip(_activeTrip!.id, name: name);
       _history.insert(0, finished);
@@ -431,7 +445,11 @@ class TripProvider extends ChangeNotifier with WidgetsBindingObserver {
     _paused = false;
     _activeTrip = null;
     if (!kIsWeb) {
-      await TrackingService.stop();
+      try {
+        await TrackingService.stop();
+      } catch (e) {
+        debugPrint('Erro ao parar background service: $e');
+      }
     }
     notifyListeners();
   }

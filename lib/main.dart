@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -7,19 +6,15 @@ import 'providers/trip_provider.dart';
 import 'providers/friend_provider.dart';
 import 'screens/login_screen.dart';
 import 'screens/main_shell.dart';
-import 'services/tracking_service.dart';
 
 /// MotoHead — Sua estrada. Nossa história.
 ///
 /// App mobile "companheiro de estrada" do motociclista (spec §1, §2).
 /// MVP: Início, Viagem (tracking GPS), SOS, Perfil.
-void main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  // Inicializa o serviço de tracking em background (envolto em try-catch para não crashar o app)
-  // Não usamos await para não bloquear o startup — erros são pegos internamente
-  TrackingService.initialize().catchError((e) {
-    debugPrint('Erro ao inicializar tracking service: $e');
-  });
+  // O TrackingService é inicializado apenas ao iniciar uma viagem,
+  // não no boot — evita crash se o plugin de background falhar.
   runApp(const MotoHeadApp());
 }
 
