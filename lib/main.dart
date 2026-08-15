@@ -6,6 +6,7 @@ import 'providers/trip_provider.dart';
 import 'providers/friend_provider.dart';
 import 'screens/login_screen.dart';
 import 'screens/main_shell.dart';
+import 'services/app_logger.dart';
 
 /// MotoHead — Sua estrada. Nossa história.
 ///
@@ -13,8 +14,9 @@ import 'screens/main_shell.dart';
 /// MVP: Início, Viagem (tracking GPS), SOS, Perfil.
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  // O TrackingService é inicializado apenas ao iniciar uma viagem,
-  // não no boot — evita crash se o plugin de background falhar.
+  // Inicializa o capturador de erros globais (crashes, exceções não tratadas)
+  AppLogger.init();
+  AppLogger.info('APP', 'MotoHead iniciando...');
   runApp(const MotoHeadApp());
 }
 

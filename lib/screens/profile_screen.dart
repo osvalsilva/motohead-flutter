@@ -5,6 +5,7 @@ import '../config/app_config.dart';
 import '../providers/auth_provider.dart';
 import '../providers/trip_provider.dart';
 import 'settings_screens.dart';
+import 'logs_screen.dart';
 
 /// Tela de Perfil (spec §21) — simplificada.
 ///
@@ -171,6 +172,31 @@ class ProfileScreen extends StatelessWidget {
             child: Text(
               '${AppConfig.appName} v${AppConfig.appVersion}',
               style: const TextStyle(color: Colors.white24, fontSize: 11),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Logs do app (diagnóstico de falhas)
+          SizedBox(
+            width: double.infinity,
+            height: 50,
+            child: OutlinedButton.icon(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const LogsScreen()),
+                );
+              },
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.white54,
+                side: const BorderSide(color: Colors.white24),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              icon: const Icon(Icons.bug_report),
+              label: const Text('LOGS DO APP',
+                  style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1)),
             ),
           ),
           const SizedBox(height: 16),

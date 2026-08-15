@@ -63,6 +63,9 @@ dependencies:
   flutter_background_service_android: ^6.2.7
   flutter_local_notifications: ^17.2.3
 
+  # Caminho de arquivos no dispositivo (para salvar logs)
+  path_provider: ^2.1.4
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
