@@ -52,6 +52,7 @@ class LocationService {
 
   /// Posição atual com alta precisão.
   /// Rejeita coordenadas inválidas (0,0 = meio do oceano).
+  /// Tenta várias vezes até obter uma posição válida (GPS precisa de tempo para fix).
   Future<Position> currentPosition({
     String accuracy = 'high',
   }) async {
@@ -59,16 +60,36 @@ class LocationService {
         ? LocationAccuracy.high
         : LocationAccuracy.medium;
 
-    final pos = await Geolocator.getCurrentPosition(
-      desiredAccuracy: locationAccuracy,
-    );
+    // Tenta até 3 vezes obter uma posição válida
+    for (int attempt = 0; attempt < 3; attempt++) {
+      try {
+        final pos = await Geolocator.getCurrentPosition(
+          desiredAccuracy: locationAccuracy,
+          timeLimit: const Duration(seconds: 15),
+        );
 
-    // Valida as coordenadas
-    if (!_isValidPosition(pos.latitude, pos.longitude)) {
-      throw Exception('GPS retornou coordenadas inválidas (0,0). Verifique se o GPS está ativado.');
+        if (_isValidPosition(pos.latitude, pos.longitude)) {
+          return pos;
+        }
+        // Coordenadas inválidas (0,0) — espera e tenta novamente
+        await Future.delayed(const Duration(seconds: 2));
+      } catch (e) {
+        // Timeout ou erro — tenta novamente
+        await Future.delayed(const Duration(seconds: 2));
+      }
     }
 
-    return pos;
+    // Tenta última posição conhecida
+    final lastKnown = await Geolocator.getLastKnownPosition();
+    if (lastKnown != null && _isValidPosition(lastKnown.latitude, lastKnown.longitude)) {
+      return lastKnown;
+    }
+
+    // Se tudo falhar, lança erro claro
+    throw Exception(
+      'Não foi possível obter sua localização. Verifique se o GPS está ativado '
+      'e tente novamente ao ar livre.',
+    );
   }
 
   /// Stream de posições para tracking contínuo (spec §6).

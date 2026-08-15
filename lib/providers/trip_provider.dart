@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:math' as _math;
 import 'package:flutter/foundation.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -39,7 +38,7 @@ class TripProvider extends ChangeNotifier {
   DateTime? _lastPointAt;
   DateTime? _tripStartTime; // Quando a viagem foi iniciada
   StreamSubscription<Position>? _sub;
-  Ticker? _ticker;
+  Timer? _ticker; // Timer que continua em background (diferente do Ticker do Flutter)
 
   // Pontos da rota para traçado em tempo real no mapa
   final List<LatLng> _routePoints = [];
@@ -117,6 +116,14 @@ class TripProvider extends ChangeNotifier {
       }
 
       final pos = await _location.currentPosition();
+
+      // Validação extra: não inicia viagem com coordenadas inválidas
+      if (pos.latitude == 0.0 && pos.longitude == 0.0) {
+        _error = 'GPS retornou coordenadas inválidas. Verifique se o GPS está ativado.';
+        notifyListeners();
+        return false;
+      }
+
       final trip = await _api.startTrip(
         name: name,
         motorcycleId: motorcycleId,
@@ -189,18 +196,17 @@ class TripProvider extends ChangeNotifier {
   }
 
   void _startTicker() {
-    _ticker?.dispose();
-    _ticker = Ticker((elapsed) {
+    _ticker?.cancel();
+    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
       if (_activeTrip != null && !_paused) {
         _totalDurationSeconds++;
         notifyListeners();
       }
     });
-    _ticker!.start();
   }
 
   void _stopTicker() {
-    _ticker?.dispose();
+    _ticker?.cancel();
     _ticker = null;
   }
 
@@ -358,7 +364,7 @@ class TripProvider extends ChangeNotifier {
   @override
   void dispose() {
     _sub?.cancel();
-    _ticker?.dispose();
+    _ticker?.cancel();
     super.dispose();
   }
 }
