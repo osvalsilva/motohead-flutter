@@ -335,7 +335,7 @@ class TrackingService {
     // Escuta comando de parada
     service.on('stop').listen((event) {
       subscription?.cancel();
-      notifTimer.cancel();
+      notifTimer?.cancel();
       service.stopSelf();
     });
 
