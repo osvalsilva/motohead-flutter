@@ -16,12 +16,12 @@ subprojects {
     project.layout.buildDirectory.value(newSubprojectBuildDir)
     project.evaluationDependsOn(":app")
     project.plugins.withId("com.android.library") {
-        project.extensions.configure<com.android.build.gradle.LibraryExtension>("android") {
+        project.extensions.configure<com.android.build.api.dsl.LibraryExtension>("android") {
             compileSdk = 36
         }
     }
     project.plugins.withId("com.android.application") {
-        project.extensions.configure<com.android.build.gradle.AppExtension>("android") {
+        project.extensions.configure<com.android.build.api.dsl.ApplicationExtension>("android") {
             compileSdk = 36
         }
     }
