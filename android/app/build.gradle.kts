@@ -6,12 +6,13 @@ plugins {
 
 android {
     namespace = "com.motohead.motohead_app"
-    compileSdk = 35  // Android 15
+    compileSdk = 36  // Android 16 (required by plugins)
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        isCoreLibraryDesugaringEnabled = true
     }
 
     defaultConfig {
@@ -54,6 +55,10 @@ android {
             }
         }
     }
+}
+
+dependencies {
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }
 
 kotlin {
