@@ -25,17 +25,17 @@ android {
     // Signing config for consistent APK updates.
     // Uses debug keystore by default; CI overrides via environment variables.
     val keystorePath = System.getenv("KEYSTORE_PATH")
-    val keystorePassword = System.getenv("KEYSTORE_PASSWORD")
-    val keyAlias = System.getenv("KEY_ALIAS")
-    val keyPassword = System.getenv("KEY_PASSWORD")
+    val keystorePass = System.getenv("KEYSTORE_PASSWORD")
+    val keyAliasVal = System.getenv("KEY_ALIAS")
+    val keyPass = System.getenv("KEY_PASSWORD")
 
     if (keystorePath != null && file(keystorePath).exists()) {
         signingConfigs {
             create("release") {
                 storeFile = file(keystorePath)
-                storePassword = keystorePassword
-                keyAlias = keyAlias
-                keyPassword = keyPassword
+                storePassword = keystorePass
+                keyAlias = keyAliasVal
+                keyPassword = keyPass
             }
         }
     }
