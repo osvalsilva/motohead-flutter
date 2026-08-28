@@ -171,7 +171,7 @@ class ApiService {
       if (startLat != null) 'start_lat': startLat,
       if (startLng != null) 'start_lng': startLng,
     });
-    return Trip.fromJson(data['trip'] as Map<String, dynamic>);
+    return Trip.fromJson(data as Map<String, dynamic>);
   }
 
   /// POST /api/tracking/trips/{id}/point
@@ -203,19 +203,19 @@ class ApiService {
     final data = await _post('/api/tracking/trips/$tripId/finish', body: {
       if (name != null && name.isNotEmpty) 'name': name,
     });
-    return Trip.fromJson(data['trip'] as Map<String, dynamic>);
+    return Trip.fromJson(data as Map<String, dynamic>);
   }
 
   /// POST /api/tracking/trips/{id}/pause
   Future<Trip> pauseTrip(int tripId) async {
     final data = await _post('/api/tracking/trips/$tripId/pause');
-    return Trip.fromJson(data['trip'] as Map<String, dynamic>);
+    return Trip.fromJson(data as Map<String, dynamic>);
   }
 
   /// POST /api/tracking/trips/{id}/resume
   Future<Trip> resumeTrip(int tripId) async {
     final data = await _post('/api/tracking/trips/$tripId/resume');
-    return Trip.fromJson(data['trip'] as Map<String, dynamic>);
+    return Trip.fromJson(data as Map<String, dynamic>);
   }
 
   /// GET /api/tracking/trips/{id} — detalhes da viagem com pontos e checkpoints
