@@ -1,4 +1,4 @@
-package com.example.motohead_app
+package com.motohead.motohead_app
 
 import io.flutter.embedding.android.FlutterActivity
 

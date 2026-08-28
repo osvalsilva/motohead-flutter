@@ -22,11 +22,36 @@ android {
         versionName = flutter.versionName
     }
 
+    // Signing config for consistent APK updates.
+    // Uses debug keystore by default; CI overrides via environment variables.
+    val keystorePath = System.getenv("KEYSTORE_PATH")
+    val keystorePassword = System.getenv("KEYSTORE_PASSWORD")
+    val keyAlias = System.getenv("KEY_ALIAS")
+    val keyPassword = System.getenv("KEY_PASSWORD")
+
+    if (keystorePath != null && file(keystorePath).exists()) {
+        signingConfigs {
+            create("release") {
+                storeFile = file(keystorePath)
+                storePassword = keystorePassword
+                keyAlias = keyAlias
+                keyPassword = keyPassword
+            }
+        }
+    }
+
     buildTypes {
-        release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
+        debug {
+            // Use debug signing for local development
             signingConfig = signingConfigs.getByName("debug")
+        }
+        release {
+            // Use release keystore if available, otherwise debug keys
+            signingConfig = if (keystorePath != null && file(keystorePath).exists()) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
         }
     }
 }

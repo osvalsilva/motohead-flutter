@@ -180,14 +180,25 @@ class TripProvider extends ChangeNotifier with WidgetsBindingObserver {
     _error = null;
     notifyListeners();
     try {
+      // Verifica permissão de GPS — pode causar recriação da Activity no Android
       final ok = await _location.ensurePermission();
       if (!ok) {
         _error = 'Permissão de localização negada. Ative o GPS nas configurações do dispositivo.';
+        _loading = false;
         notifyListeners();
         return false;
       }
 
-      final pos = await _location.currentPosition();
+      // Posição atual do GPS
+      Position pos;
+      try {
+        pos = await _location.currentPosition();
+      } catch (e) {
+        _error = 'Não foi possível obter sua localização. Verifique se o GPS está ativado.';
+        _loading = false;
+        notifyListeners();
+        return false;
+      }
 
       // Validação extra: não inicia viagem com coordenadas inválidas
       if (pos.latitude == 0.0 && pos.longitude == 0.0) {

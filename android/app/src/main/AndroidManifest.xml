@@ -54,9 +54,9 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
-        <!-- Serviço de tracking em background (flutter_background_service) -->
+        <!-- Serviço de tracking em background (flutter_background_service_android) -->
         <service
-            android:name="id.flutter.flutter_background_service.android.BackgroundService"
+            android:name="id.flutter.flutter_background_service_android.BackgroundService"
             android:foregroundServiceType="location"
             android:exported="false" />
     </application>

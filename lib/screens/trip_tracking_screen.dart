@@ -8,6 +8,7 @@ import 'package:latlong2/latlong.dart';
 import '../providers/trip_provider.dart';
 import '../providers/friend_provider.dart';
 import '../services/api_service.dart';
+import '../services/app_logger.dart';
 import '../widgets/sos_button.dart';
 
 /// Tela de Tracking (spec §7) — extremamente limpa.
@@ -430,7 +431,21 @@ class _TripTrackingScreenState extends State<TripTrackingScreen> {
 
   void _showStartDialog(BuildContext context, TripProvider trips) {
     // Inicia viagem diretamente sem pedir nome — o nome será solicitado ao finalizar
-    trips.startTrip(name: '');
+    // Usa microtask para evitar crash se o dialog de permissão recriar a Activity
+    trips.startTrip(name: '').then((success) {
+      if (!success && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(trips.error ?? 'Não foi possível iniciar a viagem.'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        trips.clearError();
+      }
+    }).catchError((e) {
+      AppLogger.error('TRACKING', 'Erro não tratado ao iniciar viagem: $e');
+    });
   }
 }
 

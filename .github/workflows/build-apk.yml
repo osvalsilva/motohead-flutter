@@ -30,11 +30,20 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
-      - name: Build APK (debug)
-        run: flutter build apk --debug --no-shrink
+      - name: Decode signing keystore
+        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/motohead.keystore
+          echo "KEYSTORE_PATH=android/app/motohead.keystore" >> $GITHUB_ENV
+          echo "KEYSTORE_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }}" >> $GITHUB_ENV
+          echo "KEY_ALIAS=${{ secrets.KEY_ALIAS }}" >> $GITHUB_ENV
+          echo "KEY_PASSWORD=${{ secrets.KEY_PASSWORD }}" >> $GITHUB_ENV
+
+      - name: Build APK (release)
+        run: flutter build apk --release --no-shrink
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: debug-apk
-          path: build/app/outputs/flutter-apk/app-debug.apk
+          name: motohead-apk
+          path: build/app/outputs/flutter-apk/app-release.apk

@@ -257,63 +257,114 @@ class TrackingService {
       );
     });
 
+    // Garante que o GPS tenha permissão antes de iniciar o stream
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        debugPrint('BackgroundService: GPS desativado, serviço não pode continuar');
+        _updateNotificationStatic('GPS desativado — tracking pausado');
+        return;
+      }
+      final permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        debugPrint('BackgroundService: Permissão de localização negada');
+        _updateNotificationStatic('Permissão de GPS negada — tracking pausado');
+        return;
+      }
+    } catch (e) {
+      debugPrint('BackgroundService: Erro ao verificar permissão GPS: $e');
+    }
+
     // Stream de posições GPS — sem distanceFilter, grava todos os pontos
     const locationSettings = LocationSettings(
       accuracy: LocationAccuracy.bestForNavigation,
       distanceFilter: 0,
+      timeLimit: Duration(seconds: 30),
     );
 
-    final positionStream = Geolocator.getPositionStream(
-      locationSettings: locationSettings,
-    );
-
-    final subscription = positionStream.listen((Position position) async {
-      // Rejeita coordenadas inválidas (0,0 = meio do oceano)
-      if (position.latitude == 0.0 && position.longitude == 0.0) return;
-
-      // Log para debug - verificar se background service está capturando
-      debugPrint('BackgroundService: Ponto capturado - ${position.latitude}, ${position.longitude}');
-
-      currentSpeedKmh = position.speed * 3.6;
-
-      // Grava todos os pontos — sem filtros de distância/speed
-      if (lastLat != 0.0 && lastLng != 0.0) {
-        final meters =
-            _haversine(lastLat, lastLng, position.latitude, position.longitude);
-        if (meters > 0) {
-          totalDistanceKm += meters / 1000.0;
-        }
-      }
-
-      lastLat = position.latitude;
-      lastLng = position.longitude;
-
-      // Atualiza notificação com dados atuais
-      final elapsed = DateTime.now().difference(startTime).inSeconds;
-      _updateNotification(
-        distanceKm: totalDistanceKm,
-        durationSeconds: elapsed,
-        speedKmh: currentSpeedKmh,
+    StreamSubscription<Position>? subscription;
+    try {
+      final positionStream = Geolocator.getPositionStream(
+        locationSettings: locationSettings,
       );
 
-      // Envia todos os pontos ao servidor
-      try {
-        final url = Uri.parse('$baseUrl/api/tracking/trips/$tripId/point');
-        await _sendPoint(url, token, position);
-      } catch (e) {
-        // Erro de rede — continua tentando no próximo ponto
-      }
-    });
+      subscription = positionStream.listen((Position position) async {
+        // Rejeita coordenadas inválidas (0,0 = meio do oceano)
+        if (position.latitude == 0.0 && position.longitude == 0.0) return;
+
+        debugPrint('BackgroundService: Ponto capturado - ${position.latitude}, ${position.longitude}');
+
+        currentSpeedKmh = position.speed * 3.6;
+
+        // Grava todos os pontos — sem filtros de distância/speed
+        if (lastLat != 0.0 && lastLng != 0.0) {
+          final meters =
+              _haversine(lastLat, lastLng, position.latitude, position.longitude);
+          if (meters > 0) {
+            totalDistanceKm += meters / 1000.0;
+          }
+        }
+
+        lastLat = position.latitude;
+        lastLng = position.longitude;
+
+        // Atualiza notificação com dados atuais
+        final elapsed = DateTime.now().difference(startTime).inSeconds;
+        await _updateNotification(
+          distanceKm: totalDistanceKm,
+          durationSeconds: elapsed,
+          speedKmh: currentSpeedKmh,
+        );
+
+        // Envia todos os pontos ao servidor
+        try {
+          final url = Uri.parse('$baseUrl/api/tracking/trips/$tripId/point');
+          await _sendPoint(url, token, position);
+        } catch (e) {
+          // Erro de rede — continua tentando no próximo ponto
+          debugPrint('BackgroundService: Erro de rede ao enviar ponto: $e');
+        }
+      }, onError: (e) {
+        debugPrint('BackgroundService: Erro no stream de GPS: $e');
+      });
+    } catch (e) {
+      debugPrint('BackgroundService: Erro ao iniciar stream de GPS: $e');
+    }
 
     // Escuta comando de parada
     service.on('stop').listen((event) {
-      subscription.cancel();
-      notifTimer?.cancel();
+      subscription?.cancel();
+      notifTimer.cancel();
       service.stopSelf();
     });
 
     // Mantém o serviço vivo
     service.on('ping').listen((event) {});
+  }
+
+  /// Notificação estática simples (para mensagens de erro/status)
+  static Future<void> _updateNotificationStatic(String message) async {
+    try {
+      const androidDetails = AndroidNotificationDetails(
+        _notificationChannelId,
+        'MotoHead Tracking',
+        channelDescription: 'Notificação de tracking de viagem ativa',
+        importance: Importance.high,
+        priority: Priority.high,
+        visibility: NotificationVisibility.public,
+        ongoing: true,
+        showWhen: false,
+        icon: '@mipmap/ic_launcher',
+      );
+
+      await _notifications.show(
+        _notificationId,
+        'MotoHead — Viagem',
+        message,
+        const NotificationDetails(android: androidDetails),
+      );
+    } catch (_) {}
   }
 
   /// Fórmula de Haversine para cálculo de distância entre dois pontos.
