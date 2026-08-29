@@ -106,14 +106,20 @@ class _TripTrackingScreenState extends State<TripTrackingScreen> {
                             icon: Icons.play_arrow,
                             label: 'RETOMAR VIAGEM',
                             color: const Color(0xFFFF0000),
-                            onTap: trips.resume,
+                            onTap: () {
+                              AppLogger.log('UI', '=== Botão RETOMAR clicado ===');
+                              trips.resume();
+                            },
                           )
                         else
                           _bigButton(
                             icon: Icons.pause,
                             label: 'PAUSAR VIAGEM',
                             color: Colors.orange,
-                            onTap: trips.pause,
+                            onTap: () {
+                              AppLogger.log('UI', '=== Botão PAUSAR clicado ===');
+                              trips.pause();
+                            },
                           ),
                         const SizedBox(height: 12),
                         _bigButton(
@@ -121,7 +127,10 @@ class _TripTrackingScreenState extends State<TripTrackingScreen> {
                           label: 'FINALIZAR VIAGEM',
                           color: Colors.white,
                           textColor: const Color(0xFFFF0000),
-                          onTap: () => _confirmFinish(context, trips),
+                          onTap: () {
+                            AppLogger.log('UI', '=== Botão FINALIZAR clicado ===');
+                            _confirmFinish(context, trips);
+                          },
                         ),
                         const SizedBox(height: 16),
                         // SOS (spec §7: prioridade 6)
@@ -430,9 +439,11 @@ class _TripTrackingScreenState extends State<TripTrackingScreen> {
       );
 
   void _showStartDialog(BuildContext context, TripProvider trips) {
+    AppLogger.log('UI', '=== Botão INICIAR VIAGEM clicado ===');
     // Inicia viagem diretamente sem pedir nome — o nome será solicitado ao finalizar
     // Usa microtask para evitar crash se o dialog de permissão recriar a Activity
     trips.startTrip(name: '').then((success) {
+      AppLogger.log('UI', 'startTrip retornou: $success, error=${trips.error}');
       if (!success && context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -444,7 +455,7 @@ class _TripTrackingScreenState extends State<TripTrackingScreen> {
         trips.clearError();
       }
     }).catchError((e) {
-      AppLogger.error('TRACKING', 'Erro não tratado ao iniciar viagem: $e');
+      AppLogger.error('UI', 'Erro não tratado ao iniciar viagem: $e');
     });
   }
 }

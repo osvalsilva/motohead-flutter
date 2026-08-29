@@ -21,25 +21,51 @@ class LocationService {
   }
 
   /// Garante que as permissões de localização foram concedidas.
+  /// Solicita permissão de segundo plano se necessário (Android 10+).
   Future<bool> ensurePermission() async {
+    AppLogger.log('GPS', 'ensurePermission: verificando se GPS está ativado...');
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
-      AppLogger.error('GPS', 'Serviço de localização desativado');
+      AppLogger.error('GPS', 'ensurePermission: serviço de localização desativado');
       return false;
     }
+    AppLogger.log('GPS', 'ensurePermission: serviço GPS ativo');
 
+    AppLogger.log('GPS', 'ensurePermission: verificando permissão atual...');
     LocationPermission permission = await Geolocator.checkPermission();
+    AppLogger.log('GPS', 'ensurePermission: permissão atual = $permission');
+
     if (permission == LocationPermission.denied) {
+      AppLogger.log('GPS', 'ensurePermission: solicitando permissão...');
       permission = await Geolocator.requestPermission();
+      AppLogger.log('GPS', 'ensurePermission: após solicitação = $permission');
       if (permission == LocationPermission.denied) {
-        AppLogger.error('GPS', 'Permissão negada');
+        AppLogger.error('GPS', 'ensurePermission: permissão negada');
         return false;
       }
     }
 
     if (permission == LocationPermission.deniedForever) {
-      AppLogger.error('GPS', 'Permissão negada permanentemente');
+      AppLogger.error('GPS', 'ensurePermission: permissão negada permanentemente — abrindo configurações');
       return false;
+    }
+
+    // Solicita permissão de localização em segundo plano (Android 10+)
+    if (!kIsWeb && Platform.isAndroid) {
+      AppLogger.log('GPS', 'ensurePermission: verificando permissão de segundo plano...');
+      try {
+        // Após garantir permissão em primeiro plano, solicita segundo plano
+        final bgPermission = await Geolocator.checkPermission();
+        if (bgPermission != LocationPermission.always) {
+          AppLogger.log('GPS', 'ensurePermission: permissão atual é $bgPermission, solicitando sempre (background)...');
+          // No Android 10+, requestPermission pergunta sobre segundo plano
+          // se ACCESS_BACKGROUND_LOCATION estiver no manifest
+          final newPerm = await Geolocator.requestPermission();
+          AppLogger.log('GPS', 'ensurePermission: permissão após solicitação background = $newPerm');
+        }
+      } catch (e) {
+        AppLogger.error('GPS', 'ensurePermission: erro ao verificar background permission: $e');
+      }
     }
 
     AppLogger.info('GPS', 'Permissão concedida');

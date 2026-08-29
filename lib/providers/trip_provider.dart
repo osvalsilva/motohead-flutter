@@ -34,25 +34,25 @@ class TripProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    AppLogger.log('TRACKING', '=== AppLifecycleState: $state === activeTrip=${_activeTrip?.id}, paused=$_paused, tracking=$_tracking');
     if (state == AppLifecycleState.resumed && _activeTrip != null && !_paused) {
       AppLogger.log('TRACKING', 'App voltou do background — reiniciando tracking');
-      // App voltou do background — recalcula tempo a partir do start_time
       if (_tripStartTime != null) {
         _totalDurationSeconds = DateTime.now().difference(_tripStartTime!).inSeconds;
       }
-      // Reinicia o ticker se foi parado pelo sistema
       if (_ticker == null || !_ticker!.isActive) {
+        AppLogger.log('TRACKING', 'Ticker parado — reiniciando');
         _startTicker();
       }
-      // Sempre reinicia o stream de GPS — o Android pode ter pausado
-      // mesmo que a subscription ainda exista (não recebe eventos)
       _sub?.cancel();
       _sub = null;
       _startStream();
-      // Sincroniza estatísticas com o servidor (o background service
-      // pode ter gravado pontos enquanto o app estava em background)
       _syncStatsFromServer();
       notifyListeners();
+    } else if (state == AppLifecycleState.paused && _activeTrip != null && !_paused) {
+      AppLogger.log('TRACKING', 'App em background — tracking deve continuar via background service');
+    } else if (state == AppLifecycleState.detached) {
+      AppLogger.log('TRACKING', 'App sendo destruído pelo sistema');
     }
   }
 
@@ -176,24 +176,31 @@ class TripProvider extends ChangeNotifier with WidgetsBindingObserver {
     required String name,
     int? motorcycleId,
   }) async {
+    AppLogger.log('TRACKING', '=== startTrip() chamado === name="$name", motorcycleId=$motorcycleId');
     _loading = true;
     _error = null;
     notifyListeners();
     try {
       // Verifica permissão de GPS — pode causar recriação da Activity no Android
+      AppLogger.log('TRACKING', 'startTrip: verificando permissão GPS...');
       final ok = await _location.ensurePermission();
+      AppLogger.log('TRACKING', 'startTrip: ensurePermission retornou $ok');
       if (!ok) {
         _error = 'Permissão de localização negada. Ative o GPS nas configurações do dispositivo.';
         _loading = false;
         notifyListeners();
+        AppLogger.error('TRACKING', 'startTrip: permissão negada — abortando');
         return false;
       }
 
       // Posição atual do GPS
+      AppLogger.log('TRACKING', 'startTrip: obtendo posição GPS atual...');
       Position pos;
       try {
         pos = await _location.currentPosition();
+        AppLogger.log('TRACKING', 'startTrip: posição obtida: ${pos.latitude}, ${pos.longitude}');
       } catch (e) {
+        AppLogger.error('TRACKING', 'startTrip: erro ao obter posição: $e');
         _error = 'Não foi possível obter sua localização. Verifique se o GPS está ativado.';
         _loading = false;
         notifyListeners();
@@ -202,17 +209,21 @@ class TripProvider extends ChangeNotifier with WidgetsBindingObserver {
 
       // Validação extra: não inicia viagem com coordenadas inválidas
       if (pos.latitude == 0.0 && pos.longitude == 0.0) {
+        AppLogger.error('TRACKING', 'startTrip: coordenadas inválidas (0,0)');
         _error = 'GPS retornou coordenadas inválidas. Verifique se o GPS está ativado.';
+        _loading = false;
         notifyListeners();
         return false;
       }
 
+      AppLogger.log('TRACKING', 'startTrip: chamando API startTrip...');
       final trip = await _api.startTrip(
         name: name,
         motorcycleId: motorcycleId,
         startLat: pos.latitude,
         startLng: pos.longitude,
       );
+      AppLogger.log('TRACKING', 'startTrip: API retornou trip id=${trip.id}, status=${trip.status}');
       _activeTrip = trip;
       _currentDistanceKm = 0;
       _movingSeconds = 0;
@@ -220,12 +231,9 @@ class TripProvider extends ChangeNotifier with WidgetsBindingObserver {
       _currentSpeed = 0;
       _lastLat = pos.latitude;
       _lastLng = pos.longitude;
-      _lastSentLat = null;  // Será setado no primeiro _sendPoint
+      _lastSentLat = null;
       _lastSentLng = null;
       _lastPointAt = DateTime.now();
-      // Usa DateTime.now() do celular para cálculo de duração em tempo real.
-      // O start_time do servidor pode estar em fuso diferente, causando erro.
-      // O backend recalcula a duração correta no finishTrip usando NOW() - start_time.
       _tripStartTime = DateTime.now();
       AppLogger.log('TRACKING', 'Viagem iniciada — start_time local: $_tripStartTime');
       _paused = false;
@@ -234,36 +242,47 @@ class TripProvider extends ChangeNotifier with WidgetsBindingObserver {
       notifyListeners();
 
       // Envia o primeiro ponto.
+      AppLogger.log('TRACKING', 'startTrip: enviando primeiro ponto...');
       await _sendPoint(pos);
 
       // Começa o stream de tracking.
+      AppLogger.log('TRACKING', 'startTrip: iniciando stream GPS...');
       _startStream();
       // Começa o ticker de duração.
+      AppLogger.log('TRACKING', 'startTrip: iniciando ticker...');
       _startTicker();
       // Inicia o serviço de background (continua tracking ao fechar o app)
       if (!kIsWeb) {
+        AppLogger.log('TRACKING', 'startTrip: iniciando background service...');
         try {
           await TrackingService.start(
             tripId: trip.id,
             token: _api.token ?? '',
             apiBaseUrl: AppConfig.apiBaseUrl,
           );
+          AppLogger.log('TRACKING', 'startTrip: background service iniciado com sucesso');
         } catch (e) {
-          // Erro no background service não impede o tracking em primeiro plano
-          AppLogger.error('TRACKING', 'Erro ao iniciar background service: $e');
+          AppLogger.error('TRACKING', 'startTrip: erro ao iniciar background service: $e');
         }
       }
+      AppLogger.log('TRACKING', '=== startTrip() concluído com sucesso ===');
       return true;
     } on UnimplementedError catch (e) {
+      AppLogger.error('TRACKING', 'startTrip: UnimplementedError: $e');
       _error = 'Geolocator temporariamente desabilitado. Verifique se o GPS está ativado nas configurações do navegador.';
+      _loading = false;
       notifyListeners();
       return false;
     } on ApiException catch (e) {
+      AppLogger.error('TRACKING', 'startTrip: ApiException: ${e.message}');
       _error = e.message;
+      _loading = false;
       notifyListeners();
       return false;
-    } catch (e) {
+    } catch (e, stack) {
+      AppLogger.error('TRACKING', 'startTrip: erro inesperado: $e', stack: stack.toString());
       _error = 'Falha ao iniciar viagem: $e';
+      _loading = false;
       notifyListeners();
       return false;
     } finally {
@@ -400,17 +419,25 @@ class TripProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   /// Pausa a viagem (spec §8).
   Future<void> pause() async {
-    if (_activeTrip == null) return;
+    AppLogger.log('TRACKING', '=== pause() chamado === activeTrip=${_activeTrip?.id}');
+    if (_activeTrip == null) {
+      AppLogger.log('TRACKING', 'pause: nenhuma viagem ativa — ignorando');
+      return;
+    }
     _loading = true;
     notifyListeners();
     try {
+      AppLogger.log('TRACKING', 'pause: chamando API pauseTrip...');
       await _api.pauseTrip(_activeTrip!.id);
+      AppLogger.log('TRACKING', 'pause: API pausou com sucesso');
       _paused = true;
       _sub?.cancel();
       _sub = null;
       _tracking = false;
       _stopTicker();
-    } catch (e) {
+      AppLogger.log('TRACKING', 'pause: stream e ticker parados, _paused=$_paused');
+    } catch (e, stack) {
+      AppLogger.error('TRACKING', 'pause: erro ao pausar: $e', stack: stack.toString());
       _error = 'Falha ao pausar: $e';
     } finally {
       _loading = false;
@@ -420,16 +447,42 @@ class TripProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   /// Retoma a viagem após pausa (spec §8).
   Future<void> resume() async {
-    if (_activeTrip == null) return;
+    AppLogger.log('TRACKING', '=== resume() chamado === activeTrip=${_activeTrip?.id}, paused=$_paused');
+    if (_activeTrip == null) {
+      AppLogger.log('TRACKING', 'resume: nenhuma viagem ativa — ignorando');
+      return;
+    }
     _loading = true;
     notifyListeners();
     try {
+      AppLogger.log('TRACKING', 'resume: chamando API resumeTrip...');
       await _api.resumeTrip(_activeTrip!.id);
+      AppLogger.log('TRACKING', 'resume: API retomou com sucesso');
       _paused = false;
       _lastPointAt = DateTime.now();
+      AppLogger.log('TRACKING', 'resume: reiniciando stream e ticker...');
       _startStream();
       _startTicker();
-    } catch (e) {
+      AppLogger.log('TRACKING', 'resume: stream e ticker ativos, _paused=$_paused');
+      // Reinicia background service se não estiver rodando
+      if (!kIsWeb) {
+        try {
+          final isBgRunning = await TrackingService.isRunning();
+          if (!isBgRunning) {
+            AppLogger.log('TRACKING', 'resume: background service parado — reiniciando...');
+            await TrackingService.start(
+              tripId: _activeTrip!.id,
+              token: _api.token ?? '',
+              apiBaseUrl: AppConfig.apiBaseUrl,
+            );
+            AppLogger.log('TRACKING', 'resume: background service reiniciado');
+          }
+        } catch (e) {
+          AppLogger.error('TRACKING', 'resume: erro ao reiniciar background: $e');
+        }
+      }
+    } catch (e, stack) {
+      AppLogger.error('TRACKING', 'resume: erro ao retomar: $e', stack: stack.toString());
       _error = 'Falha ao retomar: $e';
     } finally {
       _loading = false;

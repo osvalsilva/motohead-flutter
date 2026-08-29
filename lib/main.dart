@@ -7,6 +7,7 @@ import 'providers/friend_provider.dart';
 import 'screens/login_screen.dart';
 import 'screens/main_shell.dart';
 import 'services/app_logger.dart';
+import 'services/location_service.dart';
 import 'services/tracking_service.dart';
 
 /// MotoHead — Sua estrada. Nossa história.
@@ -28,13 +29,21 @@ void main() {
 
 Future<void> _initTracking() async {
   try {
+    AppLogger.log('APP', '_initTracking: inicializando tracking service...');
     await TrackingService.initialize();
-    // Solicita permissão de notificação em background (não bloqueia o app)
-    // O dialog do sistema aparece, mas como é no início, não há tracking
-    // em andamento para perder contexto.
+    AppLogger.log('APP', '_initTracking: tracking service inicializado');
+
+    AppLogger.log('APP', '_initTracking: solicitando permissão de notificação...');
     await TrackingService.requestNotificationPermission();
-  } catch (e) {
-    AppLogger.error('APP', 'Erro ao inicializar tracking: $e');
+    AppLogger.log('APP', '_initTracking: permissão de notificação solicitada');
+
+    // Solicita permissão de GPS em primeiro plano cedo — não bloqueia o app
+    // A permissão de segundo plano será solicitada ao iniciar viagem
+    AppLogger.log('APP', '_initTracking: verificando permissão de GPS...');
+    final gpsOk = await LocationService.instance.ensurePermission();
+    AppLogger.log('APP', '_initTracking: permissão GPS = $gpsOk');
+  } catch (e, stack) {
+    AppLogger.error('APP', 'Erro ao inicializar tracking: $e', stack: stack.toString());
   }
 }
 
