@@ -28,6 +28,9 @@ class AppLogger {
   String? _token;
   set token(String? value) => _token = value;
 
+  /// Timer para auto-save de logs em arquivo.
+  Timer? _autoSaveTimer;
+
   /// Inicializa o capturador de erros globais.
   /// Deve ser chamado no main() antes de runApp().
   static void init() {
@@ -86,6 +89,11 @@ class AppLogger {
     }
 
     _controller.add(List.from(_logs));
+
+    // Auto-save em arquivo a cada 50 logs (para não perder em crash)
+    if (_logs.length % 50 == 0) {
+      _saveToFileAsync();
+    }
   }
 
   /// Retorna todos os logs em memória.
@@ -123,12 +131,15 @@ class AppLogger {
     }
   }
 
-  /// Salva os logs em arquivo no dispositivo.
-  /// Retorna o caminho do arquivo.
+  /// Salva os logs em arquivo no dispositivo (não-bloqueante).
   Future<String> saveToFile() async {
     try {
       final dir = await getApplicationDocumentsDirectory();
-      final file = File('${dir.path}/motohead_logs.txt');
+      final logsDir = Directory('${dir.path}/logs');
+      if (!await logsDir.exists()) {
+        await logsDir.create(recursive: true);
+      }
+      final file = File('${logsDir.path}/motohead_${DateTime.now().millisecondsSinceEpoch}.txt');
       final content = _logs.join('\n');
       await file.writeAsString(content);
       return file.path;
@@ -137,9 +148,38 @@ class AppLogger {
     }
   }
 
+  /// Salva os logs de forma assíncrona (não bloqueia).
+  void _saveToFileAsync() {
+    saveToFile().then((path) {
+      if (kDebugMode) debugPrint('Logs salvos em: $path');
+    }).catchError((e) {
+      if (kDebugMode) debugPrint('Erro ao salvar logs: $e');
+    });
+  }
+
   /// Limpa todos os logs.
   void clear() {
     _logs.clear();
     _controller.add([]);
+  }
+
+  /// Inicia auto-save de logs a cada 30 segundos.
+  void startAutoSave() {
+    _autoSaveTimer?.cancel();
+    _autoSaveTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      _saveToFileAsync();
+    });
+  }
+
+  /// Para auto-save de logs.
+  void stopAutoSave() {
+    _autoSaveTimer?.cancel();
+    _autoSaveTimer = null;
+  }
+
+  @override
+  void dispose() {
+    stopAutoSave();
+    _controller.close();
   }
 }

@@ -18,6 +18,10 @@ void main() {
   WidgetsFlutterBinding.ensureInitialized();
   AppLogger.init();
   AppLogger.info('APP', 'MotoHead iniciando...');
+  
+  // Inicia auto-save de logs em arquivo local
+  AppLogger.instance.startAutoSave();
+  AppLogger.info('APP', 'Auto-save de logs iniciado');
 
   // Inicializa o serviço de tracking e solicita permissão de notificação
   // cedo no ciclo de vida — fazer isso durante startTrip() causa crash

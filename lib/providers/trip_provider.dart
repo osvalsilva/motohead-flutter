@@ -84,6 +84,7 @@ class TripProvider extends ChangeNotifier with WidgetsBindingObserver {
   Trip? _activeTrip;
   List<Trip> _history = [];
   String? _error;
+  bool _isStartingTrip = false; // Flag para evitar chamadas simultâneas
 
   // Estatísticas locais (espelhando o backend).
   double _currentDistanceKm = 0;
@@ -176,6 +177,12 @@ class TripProvider extends ChangeNotifier with WidgetsBindingObserver {
     required String name,
     int? motorcycleId,
   }) async {
+    if (_isStartingTrip) {
+      AppLogger.log('TRACKING', 'startTrip: já iniciando — ignorando chamada simultânea');
+      return false;
+    }
+    _isStartingTrip = true;
+    
     AppLogger.log('TRACKING', '=== startTrip() chamado === name="$name", motorcycleId=$motorcycleId');
     _loading = true;
     _error = null;
@@ -287,6 +294,7 @@ class TripProvider extends ChangeNotifier with WidgetsBindingObserver {
       return false;
     } finally {
       _loading = false;
+      _isStartingTrip = false;
       notifyListeners();
     }
   }
