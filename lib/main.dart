@@ -1,4 +1,9 @@
+import 'dart:async';
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import 'providers/auth_provider.dart';
@@ -18,17 +23,59 @@ void main() {
   WidgetsFlutterBinding.ensureInitialized();
   AppLogger.init();
   AppLogger.info('APP', 'MotoHead iniciando...');
-  
+
+  // Prepara arquivo de log persistente (rotaciona sessão anterior)
+  unawaited(AppLogger.initFile());
+
   // Inicia auto-save de logs em arquivo local
   AppLogger.instance.startAutoSave();
   AppLogger.info('APP', 'Auto-save de logs iniciado');
 
+  // Loga informações do celular e restrições do sistema (bateria/segundo plano)
+  unawaited(_logDeviceInfo());
+
   // Inicializa o serviço de tracking e solicita permissão de notificação
   // cedo no ciclo de vida — fazer isso durante startTrip() causa crash
   // porque o Android recria a Activity ao conceder a permissão.
-  _initTracking();
+  unawaited(_initTracking());
 
-  runApp(const MotoHeadApp());
+  // Captura erros que escapam do framework (fora da zona do FlutterError)
+  runZonedGuarded(() {
+    runApp(const MotoHeadApp());
+  }, (error, stack) {
+    AppLogger.error('ZONE', 'Erro não tratado: $error', stack: stack.toString());
+  });
+}
+
+/// Loga fabricante/modelo/versão do Android e restrições do sistema que
+/// podem fechar o app (otimização de bateria, restrição de segundo plano).
+Future<void> _logDeviceInfo() async {
+  try {
+    if (kIsWeb || !Platform.isAndroid) return;
+    const channel = MethodChannel('motohead/native');
+    final info = await channel.invokeMethod<dynamic>('deviceInfo');
+    if (info is Map) {
+      AppLogger.info(
+          'DEVICE',
+          'celular=${info['manufacturer']} ${info['model']} '
+          'android=${info['android_release']} (SDK ${info['sdk_int']}) '
+          'bateriaSemRestricao=${info['isIgnoringBatteryOptimizations']} '
+          'segundoPlanoRestrito=${info['isBackgroundRestricted']}');
+      if (info['isBackgroundRestricted'] == true) {
+        AppLogger.error(
+            'DEVICE',
+            'USO EM SEGUNDO PLANO ESTÁ RESTRITO nas configurações do celular! '
+            'Isso pode fechar o app ao iniciar a viagem. Em Configurações > Aplicativos > '
+            'MotoHead > Bateria, escolha "Sem restrições".');
+      }
+      if (info['isIgnoringBatteryOptimizations'] != true) {
+        AppLogger.log('DEVICE',
+            'Otimização de bateria ativa — se o app fechar em viagem, desative a otimização para o MotoHead.');
+      }
+    }
+  } catch (e) {
+    AppLogger.log('DEVICE', 'Não foi possível obter info nativa do celular: $e');
+  }
 }
 
 Future<void> _initTracking() async {

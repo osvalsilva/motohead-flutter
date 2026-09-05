@@ -18,7 +18,7 @@ class AppConfig {
   static const String appName = 'MotoHead';
 
   /// Versão do app.
-  static const String appVersion = '1.0.0';
+  static const String appVersion = '1.0.2';
 
   /// Intervalo (ms) entre pontos GPS durante uma viagem ativa.
   static const int trackingIntervalMs = 5000;

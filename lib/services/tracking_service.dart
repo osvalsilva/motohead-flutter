@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui';
@@ -7,9 +7,26 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app_logger.dart';
+
+/// Log do isolate de background — grava no MESMO arquivo de log do app
+/// (append é atômico para linhas pequenas). O AppLogger da UI não é
+/// compartilhado entre isolates, então o BG precisa escrever direto.
+Future<void> _bgLog(String message) async {
+  debugPrint('BG_SERVICE: $message');
+  try {
+    final dir = await getApplicationDocumentsDirectory();
+    final file = File('${dir.path}/logs/motohead.log');
+    await file.parent.create(recursive: true);
+    await file.writeAsString(
+      '[${DateTime.now().toIso8601String()}] BG_SERVICE: $message\n',
+      mode: FileMode.append,
+    );
+  } catch (_) {}
+}
 
 /// Serviço de tracking em segundo plano.
 ///
@@ -31,7 +48,7 @@ class TrackingService {
   /// Inicializa o serviço de background e o canal de notificação.
   /// Seguro para chamar no main() — não lança exceções.
   /// NÃO solicita permissão aqui — isso é feito separadamente para evitar
-  /// crash quando o Android recria a Activity após conceder permissão.
+  /// crash quando o Android recria a Activity após conceder a permissão.
   static Future<void> initialize() async {
     try {
       // Inicializa notificações locais
@@ -77,8 +94,9 @@ class TrackingService {
           onBackground: onIosBackground,
         ),
       );
-    } catch (e) {
-      debugPrint('Erro ao inicializar tracking service: $e');
+      _bgLog('initialize() concluído');
+    } catch (e, stack) {
+      _bgLog('ERRO no initialize(): $e\n$stack');
     }
   }
 
@@ -94,7 +112,7 @@ class TrackingService {
         }
       }
     } catch (e) {
-      debugPrint('Erro ao solicitar permissão de notificação: $e');
+      _bgLog('Erro ao solicitar permissão de notificação: $e');
     }
   }
 
@@ -140,6 +158,7 @@ class TrackingService {
       );
     } catch (e) {
       // Ignora erro de notificação — não afeta o tracking
+      _bgLog('Erro ao atualizar notificação: $e');
     }
   }
 
@@ -183,6 +202,7 @@ class TrackingService {
       AppLogger.log('BG_SERVICE', '=== start() concluído ===');
     } catch (e, stack) {
       AppLogger.error('BG_SERVICE', 'start: erro: $e', stack: stack.toString());
+      _bgLog('ERRO no start(): $e');
     }
   }
 
@@ -197,8 +217,11 @@ class TrackingService {
       final service = FlutterBackgroundService();
       service.invoke('stop');
 
-      await _notifications.cancel(_notificationId);
-      AppLogger.log('BG_SERVICE', 'stop: serviço parado e notificação cancelada');
+      // NÃO chamar _notifications.cancel() aqui: além de desnecessário
+      // (a notificação do FGS é removida quando o serviço para), o plugin
+      // flutter_local_notifications lança "Missing type parameter" ao ler
+      // o cache de notificações agendadas corrompido neste dispositivo.
+      AppLogger.log('BG_SERVICE', 'stop: serviço parado');
     } catch (e) {
       AppLogger.error('BG_SERVICE', 'stop: erro: $e');
     }
@@ -229,8 +252,7 @@ class TrackingService {
   static Future<void> onStart(ServiceInstance service) async {
     DartPluginRegistrant.ensureInitialized();
 
-    // Log usando debugPrint (isolado de background não tem acesso ao AppLogger)
-    debugPrint('BG_SERVICE: === onStart() chamado === serviço iniciando');
+    _bgLog('=== onStart() chamado === serviço iniciando');
 
     final prefs = await SharedPreferences.getInstance();
     final tripId = prefs.getInt(_kActiveTripId);
@@ -238,15 +260,15 @@ class TrackingService {
     final baseUrl = prefs.getString(_kApiBaseUrl);
     final startTimeMs = prefs.getInt(_kTripStartTime);
 
-    debugPrint('BG_SERVICE: tripId=$tripId, token=${token != null ? "sim" : "não"}, baseUrl=$baseUrl');
+    _bgLog('tripId=$tripId, token=${token != null ? "sim" : "não"}, baseUrl=$baseUrl');
 
     if (tripId == null || token == null || baseUrl == null) {
-      debugPrint('BG_SERVICE: Dados incompletos, parando serviço');
+      _bgLog('Dados incompletos, parando serviço');
       service.stopSelf();
       return;
     }
 
-    debugPrint('BG_SERVICE: tripId=$tripId, iniciando tracking GPS');
+    _bgLog('tripId=$tripId, iniciando tracking GPS');
 
     // Estado local do tracking
     double totalDistanceKm = 0;
@@ -270,25 +292,25 @@ class TrackingService {
 
     // Garante que o GPS tenha permissão antes de iniciar o stream
     try {
-      debugPrint('BG_SERVICE: verificando GPS...');
+      _bgLog('verificando GPS...');
       final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      debugPrint('BG_SERVICE: GPS ativado? $serviceEnabled');
+      _bgLog('GPS ativado? $serviceEnabled');
       if (!serviceEnabled) {
-        debugPrint('BG_SERVICE: GPS desativado, serviço não pode continuar');
+        _bgLog('GPS desativado, serviço não pode continuar');
         _updateNotificationStatic('GPS desativado — tracking pausado');
         return;
       }
       final permission = await Geolocator.checkPermission();
-      debugPrint('BG_SERVICE: permissão GPS = $permission');
+      _bgLog('permissão GPS = $permission');
       if (permission == LocationPermission.denied ||
           permission == LocationPermission.deniedForever) {
-        debugPrint('BG_SERVICE: Permissão de localização negada');
+        _bgLog('Permissão de localização negada');
         _updateNotificationStatic('Permissão de GPS negada — tracking pausado');
         return;
       }
-      debugPrint('BG_SERVICE: GPS OK, iniciando stream...');
+      _bgLog('GPS OK, iniciando stream...');
     } catch (e) {
-      debugPrint('BG_SERVICE: Erro ao verificar permissão GPS: $e');
+      _bgLog('Erro ao verificar permissão GPS: $e');
     }
 
     // Stream de posições GPS — sem distanceFilter, grava todos os pontos
@@ -301,17 +323,17 @@ class TrackingService {
     StreamSubscription<Position>? subscription;
     int pointCount = 0;
     try {
-      debugPrint('BG_SERVICE: criando stream de GPS...');
+      _bgLog('criando stream de GPS...');
       final positionStream = Geolocator.getPositionStream(
         locationSettings: locationSettings,
       );
-      debugPrint('BG_SERVICE: stream criado, escutando...');
+      _bgLog('stream criado, escutando...');
 
       subscription = positionStream.listen((Position position) async {
         if (position.latitude == 0.0 && position.longitude == 0.0) return;
 
         pointCount++;
-        debugPrint('BG_SERVICE: Ponto #$pointCount - ${position.latitude}, ${position.longitude} speed=${(position.speed * 3.6).toStringAsFixed(1)}km/h');
+        _bgLog('Ponto #$pointCount - ${position.latitude}, ${position.longitude} speed=${(position.speed * 3.6).toStringAsFixed(1)}km/h');
 
         currentSpeedKmh = position.speed * 3.6;
 
@@ -336,20 +358,20 @@ class TrackingService {
         try {
           final url = Uri.parse('$baseUrl/api/tracking/trips/$tripId/point');
           await _sendPoint(url, token, position);
-          debugPrint('BG_SERVICE: Ponto #$pointCount enviado ao servidor');
+          _bgLog('Ponto #$pointCount enviado ao servidor');
         } catch (e) {
-          debugPrint('BG_SERVICE: Erro de rede ao enviar ponto #$pointCount: $e');
+          _bgLog('Erro de rede ao enviar ponto #$pointCount: $e');
         }
       }, onError: (e) {
-        debugPrint('BG_SERVICE: Erro no stream de GPS: $e');
+        _bgLog('Erro no stream de GPS: $e');
       });
     } catch (e) {
-      debugPrint('BG_SERVICE: Erro ao iniciar stream de GPS: $e');
+      _bgLog('Erro ao iniciar stream de GPS: $e');
     }
 
     // Escuta comando de parada
     service.on('stop').listen((event) {
-      debugPrint('BG_SERVICE: comando stop recebido — parando serviço');
+      _bgLog('comando stop recebido — parando serviço');
       subscription?.cancel();
       notifTimer?.cancel();
       service.stopSelf();
@@ -357,9 +379,9 @@ class TrackingService {
 
     // Mantém o serviço vivo
     service.on('ping').listen((event) {
-      debugPrint('BG_SERVICE: ping recebido');
+      _bgLog('ping recebido');
     });
-    debugPrint('BG_SERVICE: onStart() concluído — serviço ativo e escutando GPS');
+    _bgLog('onStart() concluído — serviço ativo e escutando GPS');
   }
 
   /// Notificação estática simples (para mensagens de erro/status)
@@ -420,7 +442,7 @@ class TrackingService {
   "lng": ${pos.longitude},
   "altitude": ${pos.altitude},
   "speed": ${pos.speed},
-  "heading": ${pos.heading ?? 0},
+  "heading": ${pos.heading},
   "accuracy": ${pos.accuracy},
   "recorded_at": "${DateTime.now().toIso8601String()}"
 }''';

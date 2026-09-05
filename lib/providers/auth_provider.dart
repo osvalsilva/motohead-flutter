@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../models/user.dart';
@@ -35,6 +37,8 @@ class AuthProvider extends ChangeNotifier {
         _session = saved;
         _api.token = saved.token;
         AppLogger.instance.token = saved.token;
+        // Envia log/crash da sessão anterior ao servidor (pós-crash)
+        unawaited(AppLogger.instance.autoUploadPreviousSession());
       }
     } catch (e) {
       // Sessão inválida — ignora silenciosamente
@@ -54,6 +58,8 @@ class AuthProvider extends ChangeNotifier {
       final session = await _api.login(email, password);
       _session = session;
       AppLogger.instance.token = session.token;
+      // Envia log/crash da sessão anterior ao servidor (pós-crash)
+      unawaited(AppLogger.instance.autoUploadPreviousSession());
       if (remember) {
         await SessionStorage.saveSession(session);
       }
