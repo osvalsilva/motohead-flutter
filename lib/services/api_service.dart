@@ -85,7 +85,7 @@ class ApiService {
       throw ApiException(
         resp.statusCode,
         json['message'] as String? ?? 'Erro ${resp.statusCode}',
-        errors: json['errors'] as Map<String, dynamic>?,
+        errors: _normalizeErrors(json['errors']),
         rawBody: body,
       );
     }
@@ -93,6 +93,18 @@ class ApiService {
     // Envelope padrão: { success, message, data }
     if (json.containsKey('data')) return json['data'];
     return json;
+  }
+
+  /// Normaliza o campo `errors` do backend, que pode vir como Map
+  /// (validação campo → mensagens) ou como List/array vazio (padrão do
+  /// errorResponse em PHP, onde [] é codificado como array JSON).
+  static Map<String, dynamic>? _normalizeErrors(dynamic raw) {
+    if (raw is Map<String, dynamic>) return raw;
+    if (raw is Map) return raw.map((k, v) => MapEntry(k.toString(), v));
+    if (raw is List && raw.isNotEmpty) {
+      return {'_': raw.map((e) => e.toString()).toList()};
+    }
+    return null;
   }
 
   Future<dynamic> _get(String path, {Map<String, String>? query}) async {
